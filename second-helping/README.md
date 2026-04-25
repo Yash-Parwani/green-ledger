@@ -2,19 +2,44 @@
 
 > Submission to **Swiggy Builders Club** — `mcp.swiggy.com/builders/`
 
-**Programmatic CSR on Swiggy rails. Slack in, 80G receipt out.**
+**Programmatic CSR on Swiggy's rails. Cancelled orders rescued. Restaurants paid. NGOs fed. Corporates compliant.**
 
-Every Indian company with ≥₹5Cr profit is **legally required** to spend 2% of net profit on CSR (Companies Act §135). That's ₹25,000+ Cr/year of mandatory deployment, mostly handled today by spreadsheets, manual POs, and quarterly cheques to NGOs.
+## What we're actually building (the full vision)
 
-Second Helping turns that into one Slack thread. A CFO types *"Sponsor 500 meals/week for Asha Kiran shelter, ₹40k/month, veg, nut-free"* — and the agent autonomously runs the full program every week across **Swiggy Instamart** (bulk staples), **Swiggy Food** (FSSAI partner kitchens), and **Swiggy Dineout** (community tables for festivals), with auto-generated **80G receipts** and **ESG dashboards** on day one.
+Every Indian company above ₹5Cr profit is **legally required** to spend 2% of net profit on CSR (Companies Act §135) — ₹25,000+ Cr/year of mandatory deployment. Today most of it goes to NGOs through manual POs, quarterly cheques, and spreadsheet impact reports. Meanwhile, Swiggy's last-mile network is moving cooked food across every major Indian city, and a non-trivial fraction of those orders get cancelled or fail post-prep — late customer cancellations, address issues, payment failures, restaurant unavailability. The food is already cooked. Most of it ends up wasted at the restaurant, and the restaurant absorbs the loss.
 
-## The category bet
+**Second Helping connects those two problems.**
 
-- **Give.do & Ketto** won donation-tech.
-- **Nobody** has won programmatic CSR *procurement* — the part where money turns into actual goods and services delivered to beneficiaries.
-- Swiggy is the only operator with urban last-mile dense enough to make this real.
+A corporate CSR head sets up a standing program in Slack — *"₹40k/month, mixed shelters across Bangalore, veg only"*. From then on:
 
-This isn't a consumer feature. It's a new **B2B GMV channel** with corporate ACVs that dwarf consumer unit economics.
+1. **Rescue lane (the main idea):** When a partner restaurant's Food order cancels or fails post-prep, our agent matches the in-flight order to the nearest verified NGO/shelter with capacity, debits the corporate's CSR budget for the order value, and reroutes the Bolt/Genie rider to the shelter instead of letting the food go to waste. The restaurant gets paid in full. The NGO gets a hot meal in 15 minutes. The corporate's CSR auto-deploys.
+2. **Procurement lane (the subset we can ship today):** For predictable program needs — weekly bulk staples, daily cooked meals, festival community dinners — the agent runs recurring procurement across Instamart, Food, and Dineout. With 80G receipts and ESG dashboards generated automatically.
+
+Why this is *Swiggy-shaped* and not a generic startup pitch:
+
+- **Restaurant retention lever** — partners stop swallowing cancellation losses. Measurable.
+- **Real ESG numbers** — Swiggy gets auditable "meals rescued from waste" stats, not marketing copy.
+- **Zero marginal cost on rescue** — rider already dispatched, food already cooked, corporate budget already committed. Pure margin.
+- **Only Swiggy can build this.** It needs control of the order lifecycle *and* the last mile. No third party (us included) could replicate it without those primitives.
+
+## What we're shipping in v1 (the subset that runs on today's MCPs)
+
+The cancellation/redirect APIs we need for the rescue lane don't exist on the MCPs today. We didn't want to fake them in the demo. So v1 ships only the **procurement lane** — which is real, useful on day one, and works fully on today's Food / Instamart / Dineout MCPs:
+
+A CFO types in Slack: *"Sponsor 500 meals/week for Asha Kiran shelter, ₹40k/month, veg, nut-free."* The agent proposes a split (~70% Instamart bulk staples, ~30% Food partner-kitchen meals, with Dineout community tables on festival weeks), the user confirms, and it runs weekly from there. 80G receipt generates automatically; ESG dashboard updates live.
+
+That's the demo in this repo. Full v2 spec is in [`PROMPT.md`](./PROMPT.md).
+
+## What we'd need from Swiggy to ship v2 (the rescue lane)
+
+Two new bits of MCP surface:
+
+- **Webhook:** `food.order.cancelled` / `food.order.failed_post_prep` — fires with order items, restaurant location, estimated value, time-since-prep.
+- **Method:** `food.delivery.redirect(order_id, new_drop_address, reason)` — reroute an in-flight delivery to an alternate verified address.
+
+Plus an opt-in flag for partner restaurants (probably already exists internally) and standard rate-limiting on the redirect call. We're happy to design with the team.
+
+If the Builders Club team is open to co-designing these endpoints, we'd love to be the first integration partner. If not, no hard feelings — v1 still solves a real problem on today's APIs.
 
 ## Architecture
 
@@ -23,10 +48,10 @@ CSR admin (Slack)
    │
    └─→ Second Helping agent (OpenAI gpt-5-mini · medium reasoning)
           │ tool-use loop
+          ├─→ Swiggy Food MCP        (today: partner kitchens · v2: cancellation webhook + redirect)
           ├─→ Swiggy Instamart MCP   (bulk staples)
-          ├─→ Swiggy Food MCP        (partner kitchens)
           ├─→ Swiggy Dineout MCP     (community tables)
-          └─→ Our compliance layer   (80G receipts + ESG dashboard)
+          └─→ Our compliance layer   (NGO registry · 80G receipts · ESG dashboard)
 ```
 
 ## Run it
@@ -46,40 +71,8 @@ app/
 lib/
   tools.ts              → MCP + compliance tool schemas + system prompt
   mock-mcp.ts           → mock MCP + compliance implementations
-PROMPT.md               → full build spec
+PROMPT.md               → full v2 spec, including rescue-lane architecture
 ```
-
-## On the MCP gap
-
-Today's MCPs support the procurement path end-to-end (search → cart → recurring orders + reservations). The v1 demo runs entirely on what's exposed today.
-
-## The bigger vision: cancelled-order rescue (needs new MCP surface)
-
-Here's the part we couldn't build with today's APIs but think is worth flagging — because if Swiggy builds it, *this is the thing*.
-
-Every day, a non-trivial chunk of Swiggy Food orders get cancelled or fail post-prep — customer cancels late, restaurant marks unavailable, address issue, payment fails after the food is already cooked. The food exists, it's hot, and right now most of it ends up wasted at the restaurant.
-
-What we'd build with the right hooks:
-
-1. **A webhook from Food MCP that fires on cancellation/failure** with the order details (items, restaurant location, estimated value).
-2. **A "redirect delivery" call** that lets us reroute the order to a different drop address.
-
-Then Second Helping does this:
-
-- Subscribes to those events for partner restaurants (with their consent, since they get paid either way).
-- Maintains a verified NGO/shelter registry geo-indexed by neighbourhood.
-- When a cancellation fires, the agent matches the order to the nearest NGO with capacity within delivery radius, debits the corporate's standing CSR budget for the order value, and reroutes the Bolt/Genie rider to drop it there instead of the restaurant eating the loss.
-
-Why this is interesting for Swiggy specifically:
-
-- **Restaurant retention** — partner restaurants stop swallowing cancellation losses, get paid in full. This is a measurable retention lever.
-- **Sustainability story** — Swiggy gets a real, audited "meals rescued from waste" number for ESG reporting, not a marketing claim.
-- **CSR money flows in at zero marginal logistics cost** — the rider is already dispatched, the food is already cooked, the corporate's budget is already committed.
-- **Nobody else can build this.** It only works if you control the order lifecycle and the last mile. Swiggy is uniquely positioned.
-
-We can't ship this in v1 because it needs MCP surface that doesn't exist today (cancellation webhooks + delivery redirect). But if the Builders Club team is interested in co-designing those endpoints, we'd love to be the first integration partner — and we think the unit economics are strong enough that it'd pay for the API work several times over.
-
-In the meantime, we're shipping the procurement use case (above) which works on today's MCPs.
 
 ## Built with
 
