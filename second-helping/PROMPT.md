@@ -58,9 +58,44 @@ CSR admin → Slack #csr-procurement
 
 The architecture note we'd send Swiggy:
 
-> Today's MCPs support the full procurement path we need (search → cart → recurring orders across Food/Instamart + reservations on Dineout). Stretch features — surplus/near-expiry inventory routing to NGOs at deeper discount, dedicated Assure/wholesale endpoints — would benefit from future MCP endpoints. Happy to co-design those with the Swiggy team if the pilot shows traction.
+> Today's MCPs support the full procurement path we need (search → cart → recurring orders across Food/Instamart + reservations on Dineout). v1 ships on those APIs.
 
 We don't fake the gap. We frame it as *partnership opportunity* rather than *missing dependency*.
+
+## The bigger vision (for the pitch — needs new MCP surface)
+
+We deliberately scoped v1 to what's buildable on today's MCPs, but the more interesting wedge — and the one that should *motivate* Swiggy to keep building — is **cancelled-order rescue**.
+
+**The observation:** every day a non-trivial fraction of Swiggy Food orders get cancelled or fail after the food is already prepped — late customer cancellations, address issues, payment failures, restaurant unavailability. The food is real, it's hot, it exists. Today most of it gets wasted at the restaurant and the restaurant eats the loss.
+
+**What we'd build with the right hooks:**
+
+1. A webhook on Food MCP that fires on order cancellation / post-prep failure (order items, restaurant location, estimated value, time window).
+2. A "redirect delivery" call that lets a partner reroute an in-flight order to an alternate verified address.
+
+**The Second Helping flow with those endpoints:**
+
+- Partner restaurants opt in (they're paid either way — major retention upside).
+- We maintain a geo-indexed registry of verified NGOs / shelters with capacity windows.
+- On cancellation, the agent matches the order → nearest NGO with capacity in radius → debits the corporate's standing CSR budget for the order value → reroutes Bolt/Genie to drop the food there.
+
+**Why this is the *Swiggy-shaped* CSR product:**
+
+- **Restaurant retention lever** — restaurants stop absorbing cancellation losses. Measurable, defensible.
+- **Real ESG numbers** — Swiggy can publish "X lakh meals rescued from waste" with audit trail, not marketing copy.
+- **CSR money at zero marginal logistics cost** — the rider is already dispatched, the food is already cooked, the corporate budget is already allocated. Pure margin.
+- **Defensibility** — only Swiggy can do this. It requires control of the order lifecycle *and* the last mile. No third party (us included) could replicate it without those primitives.
+
+**What we'd need from Swiggy to ship it:**
+
+- MCP webhook spec for `food.order.cancelled` / `food.order.failed_post_prep` events
+- MCP method for redirect-in-flight: `food.delivery.redirect(order_id, new_drop_address, justification_payload)`
+- Partner restaurant opt-in flag (probably already exists internally)
+- Standard rate-limiting / abuse protection on the redirect call (we'd be happy to design with the team)
+
+**Why we're flagging it now even though we can't build it:** because if v1 (procurement) shows traction with corporates, this is the obvious v2 — and it's the kind of capability that turns Swiggy from a transactional platform into the default pipe for India's CSR-meets-food-rescue infrastructure. We'd love to be the first integration partner if the Builders Club team is open to co-designing these endpoints.
+
+If not, no hard feelings — v1 is real and ships on today's APIs. We just thought it was worth saying out loud.
 
 ## Demo script (90s Loom)
 
