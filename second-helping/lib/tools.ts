@@ -1,110 +1,141 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-export const tools: Anthropic.Tool[] = [
+export const tools: OpenAI.Chat.ChatCompletionTool[] = [
   {
-    name: "instamart_search_bulk",
-    description: "Find bulk staples (rice, dal, oil, wheat, salt, spices) on Swiggy Instamart at the best per-kg price near a location.",
-    input_schema: {
-      type: "object",
-      properties: {
-        category: { type: "string", enum: ["rice", "dal", "oil", "wheat", "salt", "spices"] },
-        quantity_kg: { type: "number" },
-        location: { type: "string" },
-      },
-      required: ["category", "quantity_kg", "location"],
-    },
-  },
-  {
-    name: "instamart_schedule_recurring",
-    description: "Schedule a recurring bulk-staples drop to an NGO/shelter address.",
-    input_schema: {
-      type: "object",
-      properties: {
-        items: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: { category: { type: "string" }, quantity_kg: { type: "number" }, vendor: { type: "string" } },
-            required: ["category", "quantity_kg", "vendor"],
-          },
+    type: "function",
+    function: {
+      name: "instamart_search_bulk",
+      description:
+        "Find bulk staples (rice, dal, oil, wheat, salt, spices) on Swiggy Instamart at the best per-kg price near a location.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", enum: ["rice", "dal", "oil", "wheat", "salt", "spices"] },
+          quantity_kg: { type: "number" },
+          location: { type: "string" },
         },
-        delivery_address: { type: "string" },
-        cadence: { type: "string", enum: ["weekly", "biweekly", "monthly"] },
-        weeks: { type: "integer", description: "Total program duration in weeks" },
+        required: ["category", "quantity_kg", "location"],
       },
-      required: ["items", "delivery_address", "cadence", "weeks"],
     },
   },
   {
-    name: "food_partner_kitchens",
-    description: "Find FSSAI-certified partner kitchens on Swiggy Food that can cook meals at scale for shelter/NGO meal programs.",
-    input_schema: {
-      type: "object",
-      properties: {
-        location: { type: "string" },
-        meal_type: { type: "string", enum: ["north_indian", "south_indian", "khichdi", "biryani"] },
-        servings: { type: "integer" },
-        dietary: { type: "array", items: { type: "string" } },
+    type: "function",
+    function: {
+      name: "instamart_schedule_recurring",
+      description: "Schedule a recurring bulk-staples drop to an NGO/shelter address.",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                category: { type: "string" },
+                quantity_kg: { type: "number" },
+                vendor: { type: "string" },
+              },
+              required: ["category", "quantity_kg", "vendor"],
+            },
+          },
+          delivery_address: { type: "string" },
+          cadence: { type: "string", enum: ["weekly", "biweekly", "monthly"] },
+          weeks: { type: "integer", description: "Total program duration in weeks" },
+        },
+        required: ["items", "delivery_address", "cadence", "weeks"],
       },
-      required: ["location", "meal_type", "servings"],
     },
   },
   {
-    name: "food_schedule_meal_program",
-    description: "Schedule a recurring cooked-meal program with a partner kitchen, dropped at the NGO address.",
-    input_schema: {
-      type: "object",
-      properties: {
-        kitchen_id: { type: "string" },
-        servings_per_drop: { type: "integer" },
-        delivery_address: { type: "string" },
-        cadence: { type: "string", enum: ["daily", "weekly"] },
-        weeks: { type: "integer" },
+    type: "function",
+    function: {
+      name: "food_partner_kitchens",
+      description:
+        "Find FSSAI-certified partner kitchens on Swiggy Food that can cook meals at scale for shelter/NGO meal programs.",
+      parameters: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          meal_type: { type: "string", enum: ["north_indian", "south_indian", "khichdi", "biryani"] },
+          servings: { type: "integer" },
+          dietary: { type: "array", items: { type: "string" } },
+        },
+        required: ["location", "meal_type", "servings"],
       },
-      required: ["kitchen_id", "servings_per_drop", "delivery_address", "cadence", "weeks"],
     },
   },
   {
-    name: "dineout_community_table",
-    description: "Reserve community-table slots at participating restaurants for festival meals (Diwali, Christmas, Eid) for shelter beneficiaries.",
-    input_schema: {
-      type: "object",
-      properties: {
-        location: { type: "string" },
-        party_size: { type: "integer" },
-        date: { type: "string" },
-        occasion: { type: "string" },
+    type: "function",
+    function: {
+      name: "food_schedule_meal_program",
+      description:
+        "Schedule a recurring cooked-meal program with a partner kitchen, dropped at the NGO address.",
+      parameters: {
+        type: "object",
+        properties: {
+          kitchen_id: { type: "string" },
+          servings_per_drop: { type: "integer" },
+          delivery_address: { type: "string" },
+          cadence: { type: "string", enum: ["daily", "weekly"] },
+          weeks: { type: "integer" },
+        },
+        required: ["kitchen_id", "servings_per_drop", "delivery_address", "cadence", "weeks"],
       },
-      required: ["location", "party_size", "date", "occasion"],
     },
   },
   {
-    name: "generate_80g_receipt",
-    description: "Generate a Section 80G-compliant donation receipt PDF for the corporate's CSR records. THIS IS OUR PRODUCT LAYER, not Swiggy.",
-    input_schema: {
-      type: "object",
-      properties: {
-        corporate_name: { type: "string" },
-        pan: { type: "string" },
-        amount_inr: { type: "number" },
-        beneficiary_ngo: { type: "string" },
-        ngo_80g_reg: { type: "string" },
+    type: "function",
+    function: {
+      name: "dineout_community_table",
+      description:
+        "Reserve community-table slots at participating restaurants for festival meals (Diwali, Christmas, Eid) for shelter beneficiaries.",
+      parameters: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          party_size: { type: "integer" },
+          date: { type: "string" },
+          occasion: { type: "string" },
+        },
+        required: ["location", "party_size", "date", "occasion"],
       },
-      required: ["corporate_name", "pan", "amount_inr", "beneficiary_ngo", "ngo_80g_reg"],
     },
   },
   {
-    name: "impact_dashboard_update",
-    description: "Update the corporate's CSR impact dashboard with meals served, cost-per-meal, CO2 saved, ESG-score delta. OUR PRODUCT LAYER.",
-    input_schema: {
-      type: "object",
-      properties: {
-        program_id: { type: "string" },
-        meals_served: { type: "integer" },
-        beneficiary_ngo: { type: "string" },
-        amount_spent_inr: { type: "number" },
+    type: "function",
+    function: {
+      name: "generate_80g_receipt",
+      description:
+        "Generate a Section 80G-compliant donation receipt PDF for the corporate's CSR records. THIS IS OUR PRODUCT LAYER, not Swiggy.",
+      parameters: {
+        type: "object",
+        properties: {
+          corporate_name: { type: "string" },
+          pan: { type: "string" },
+          amount_inr: { type: "number" },
+          beneficiary_ngo: { type: "string" },
+          ngo_80g_reg: { type: "string" },
+        },
+        required: ["corporate_name", "pan", "amount_inr", "beneficiary_ngo", "ngo_80g_reg"],
       },
-      required: ["program_id", "meals_served", "beneficiary_ngo", "amount_spent_inr"],
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "impact_dashboard_update",
+      description:
+        "Update the corporate's CSR impact dashboard with meals served, cost-per-meal, CO2 saved, ESG-score delta. OUR PRODUCT LAYER.",
+      parameters: {
+        type: "object",
+        properties: {
+          program_id: { type: "string" },
+          meals_served: { type: "integer" },
+          beneficiary_ngo: { type: "string" },
+          amount_spent_inr: { type: "number" },
+        },
+        required: ["program_id", "meals_served", "beneficiary_ngo", "amount_spent_inr"],
+      },
     },
   },
 ];

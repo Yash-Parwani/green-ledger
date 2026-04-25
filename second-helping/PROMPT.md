@@ -25,7 +25,7 @@ This isn't a feature. It's a new B2B GMV channel for Swiggy with ACVs that dwarf
 ## Tech stack
 
 - **Next.js 15 (App Router) + React 19 + TypeScript**
-- **Anthropic SDK** with `claude-opus-4-7`, manual tool-use loop
+- **OpenAI SDK** (`openai`) with `gpt-5-mini` + `reasoning_effort: "medium"`, Chat Completions API with manual tool-call loop
 - **Slack-style UI** (channel list + chat + impact dashboard right pane) — matches the actual integration surface
 - **Mock MCP clients** in `lib/mock-mcp.ts` — same swap-for-real pattern as Group Concierge
 
@@ -34,7 +34,7 @@ This isn't a feature. It's a new B2B GMV channel for Swiggy with ACVs that dwarf
 ```
 CSR admin → Slack #csr-procurement
          → Second Helping bot (Slack Bolt, swappable)
-         → Anthropic agent loop with 7 tools:
+         → OpenAI agent loop (gpt-5-mini, medium reasoning) with 7 tools:
              ├─ Instamart: search_bulk, schedule_recurring
              ├─ Food: partner_kitchens, schedule_meal_program
              ├─ Dineout: community_table
@@ -73,7 +73,7 @@ We don't fake the gap. We frame it as *partnership opportunity* rather than *mis
 ## To run locally
 
 ```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY
+cp .env.example .env   # add OPENAI_API_KEY
 npm install
 npm run dev   # runs on :3001 to coexist with Group Concierge on :3000
 ```

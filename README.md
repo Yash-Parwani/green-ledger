@@ -8,7 +8,7 @@ Two distinct submissions to the Swiggy Builders Club MCP program (`mcp.swiggy.co
 | ⚡ **Second Helping** | B2B programmatic CSR procurement | Slack/Teams Bot | [`second-helping/`](./second-helping) |
 
 Both demos:
-- Use **Claude Opus 4.7** via the Anthropic SDK with a manual tool-use loop
+- Use **OpenAI `gpt-5-mini`** with `reasoning_effort: "medium"` (Chat Completions API, manual tool-call loop)
 - Mock the three Swiggy MCPs (**Food**, **Instamart**, **Dineout**) in `lib/mock-mcp.ts` — clearly labelled, swap-for-real once Swiggy grants access
 - Render the live MCP-call trajectory in the UI so reviewers can see the agent reasoning end-to-end
 
@@ -17,7 +17,7 @@ Both demos:
 Each project is independent. From the relevant folder:
 
 ```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY
+cp .env.example .env   # add OPENAI_API_KEY
 npm install
 npm run dev
 ```

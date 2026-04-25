@@ -21,7 +21,7 @@ This isn't a consumer feature. It's a new **B2B GMV channel** with corporate ACV
 ```
 CSR admin (Slack)
    │
-   └─→ Second Helping agent (Anthropic Opus 4.7)
+   └─→ Second Helping agent (OpenAI gpt-5-mini · medium reasoning)
           │ tool-use loop
           ├─→ Swiggy Instamart MCP   (bulk staples)
           ├─→ Swiggy Food MCP        (partner kitchens)
@@ -32,7 +32,7 @@ CSR admin (Slack)
 ## Run it
 
 ```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY
+cp .env.example .env   # add OPENAI_API_KEY
 npm install
 npm run dev            # http://localhost:3001
 ```
@@ -55,6 +55,6 @@ Today's MCPs support the procurement path end-to-end (search → cart → recurr
 
 ## Built with
 
-- Anthropic Claude Opus 4.7 (`@anthropic-ai/sdk`)
+- OpenAI `gpt-5-mini` with `reasoning_effort: "medium"` (`openai` SDK)
 - Next.js 15 + React 19 + TypeScript
 - Mock Swiggy MCP clients (Food, Instamart, Dineout) + internal compliance layer

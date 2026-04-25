@@ -18,7 +18,7 @@ Today the user bounces across 3 apps and a WhatsApp group. We collapse that into
 ## Tech stack
 
 - **Next.js 15 (App Router) + React 19 + TypeScript**
-- **Anthropic SDK** (`@anthropic-ai/sdk`) — model: `claude-opus-4-7`, manual tool-use loop for visibility into MCP calls
+- **OpenAI SDK** (`openai`) — model: `gpt-5-mini` with `reasoning_effort: "medium"`, Chat Completions API with manual tool-call loop for visibility into MCP calls
 - **Mock MCP clients** in `lib/mock-mcp.ts` — each function mirrors the expected real MCP tool surface and returns deterministic fake data. Swap bodies for real `@modelcontextprotocol/sdk` calls when access is granted.
 
 ## Architecture
@@ -26,8 +26,8 @@ Today the user bounces across 3 apps and a WhatsApp group. We collapse that into
 ```
 User → /app/page.tsx (chat UI)
      → POST /app/api/chat/route.ts
-        → Anthropic Messages API with tools[] (Food/Instamart/Dineout schemas)
-        → loop: model proposes tool_use → server runs mock MCP → feeds result back
+        → OpenAI Chat Completions API with tools[] (Food/Instamart/Dineout function schemas)
+        → loop: model emits tool_calls → server runs mock MCP → feeds tool results back
         → final text + full trajectory returned to UI
      → UI renders chat reply + live MCP-call timeline (right pane)
 ```
@@ -62,7 +62,7 @@ User → /app/page.tsx (chat UI)
 
 ```bash
 cp .env.example .env
-# add ANTHROPIC_API_KEY
+# add OPENAI_API_KEY
 npm install
 npm run dev
 ```

@@ -28,7 +28,7 @@ A Group Concierge agent that sits on top of all three MCPs and orchestrates the 
 ## Architecture
 
 ```
-Next.js (App Router) ─→ /api/chat ─→ Anthropic Opus 4.7
+Next.js (App Router) ─→ /api/chat ─→ OpenAI gpt-5-mini (medium reasoning)
                                     │ tool-use loop
                                     ├─→ Swiggy Food MCP
                                     ├─→ Swiggy Instamart MCP
@@ -40,7 +40,7 @@ The demo ships with **mock MCP clients** in `lib/mock-mcp.ts` that mirror the ex
 ## Run it
 
 ```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY
+cp .env.example .env   # add OPENAI_API_KEY
 npm install
 npm run dev
 ```
@@ -61,6 +61,6 @@ PROMPT.md               → full build spec
 
 ## Built with
 
-- Anthropic Claude Opus 4.7 (`@anthropic-ai/sdk`)
+- OpenAI `gpt-5-mini` with `reasoning_effort: "medium"` (`openai` SDK)
 - Next.js 15 + React 19 + TypeScript
 - Mock Swiggy MCP clients (Food, Instamart, Dineout)
