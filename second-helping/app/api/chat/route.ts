@@ -1,11 +1,17 @@
 import OpenAI from "openai";
 import { tools, systemPrompt } from "@/lib/tools";
 import { toolImpls, type ToolName } from "@/lib/mock-mcp";
-
+import dotenv from "dotenv";
+dotenv.config();
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const client = new OpenAI();
+const baseUrl = process.env.OPENAI_URL ;
+const subscriptionKey = process.env.OPENAI_API_KEY ;
+const client = new OpenAI({
+  baseURL: baseUrl,
+  apiKey: subscriptionKey,
+});
 
 type ClientMessage = { role: "user" | "assistant"; content: string };
 type TrajEntry =
