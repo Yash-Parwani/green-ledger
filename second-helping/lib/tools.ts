@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 
 export const tools: OpenAI.Chat.ChatCompletionTool[] = [
+  // ─── Instamart ───────────────────────────────────────────────────────────
   {
     type: "function",
     function: {
       name: "instamart_search_bulk",
-      description:
-        "Find bulk staples (rice, dal, oil, wheat, salt, spices) on Swiggy Instamart at the best per-kg price near a location.",
+      description: "Find bulk staples on Swiggy Instamart at best per-kg price. Maps to Instamart search_products MCP.",
       parameters: {
         type: "object",
         properties: {
@@ -22,7 +22,7 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "instamart_schedule_recurring",
-      description: "Schedule a recurring bulk-staples drop to an NGO/shelter address.",
+      description: "Schedule a recurring bulk-staples drop to an NGO. Our product layer on top of Instamart update_cart + checkout MCPs.",
       parameters: {
         type: "object",
         properties: {
@@ -34,24 +34,40 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
                 category: { type: "string" },
                 quantity_kg: { type: "number" },
                 vendor: { type: "string" },
+                price_per_kg_inr: { type: "number" },
               },
-              required: ["category", "quantity_kg", "vendor"],
+              required: ["category", "quantity_kg", "vendor", "price_per_kg_inr"],
             },
           },
           delivery_address: { type: "string" },
           cadence: { type: "string", enum: ["weekly", "biweekly", "monthly"] },
-          weeks: { type: "integer", description: "Total program duration in weeks" },
+          weeks: { type: "integer" },
+          ngo_name: { type: "string" },
         },
-        required: ["items", "delivery_address", "cadence", "weeks"],
+        required: ["items", "delivery_address", "cadence", "weeks", "ngo_name"],
       },
     },
   },
   {
     type: "function",
     function: {
+      name: "track_instamart_order",
+      description: "Track the first drop of a scheduled Instamart program. Maps to Instamart track_order MCP.",
+      parameters: {
+        type: "object",
+        properties: {
+          schedule_id: { type: "string" },
+        },
+        required: ["schedule_id"],
+      },
+    },
+  },
+  // ─── Food ────────────────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
       name: "food_partner_kitchens",
-      description:
-        "Find FSSAI-certified partner kitchens on Swiggy Food that can cook meals at scale for shelter/NGO meal programs.",
+      description: "Find FSSAI-certified partner kitchens for scale meals. Maps to Food search_restaurants MCP.",
       parameters: {
         type: "object",
         properties: {
@@ -67,9 +83,39 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "fetch_food_coupons",
+      description: "Fetch bulk/B2B Swiggy Food coupons. ALWAYS call before placing a food order to maximise CSR efficiency. Maps to Food fetch_food_coupons MCP.",
+      parameters: {
+        type: "object",
+        properties: {
+          kitchen_id: { type: "string" },
+          order_value_inr: { type: "number" },
+        },
+        required: ["kitchen_id", "order_value_inr"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "apply_food_coupon",
+      description: "Apply a coupon to the Swiggy Food order. Call after fetch_food_coupons returns an applicable code. Maps to Food apply_food_coupon MCP.",
+      parameters: {
+        type: "object",
+        properties: {
+          kitchen_id: { type: "string" },
+          coupon_code: { type: "string" },
+          order_value_inr: { type: "number" },
+        },
+        required: ["kitchen_id", "coupon_code", "order_value_inr"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "food_schedule_meal_program",
-      description:
-        "Schedule a recurring cooked-meal program with a partner kitchen, dropped at the NGO address.",
+      description: "Schedule a recurring cooked-meal program. Our product layer on top of Food place_food_order MCP.",
       parameters: {
         type: "object",
         properties: {
@@ -78,17 +124,33 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
           delivery_address: { type: "string" },
           cadence: { type: "string", enum: ["daily", "weekly"] },
           weeks: { type: "integer" },
+          ngo_name: { type: "string" },
+          dietary_notes: { type: "string" },
         },
-        required: ["kitchen_id", "servings_per_drop", "delivery_address", "cadence", "weeks"],
+        required: ["kitchen_id", "servings_per_drop", "delivery_address", "cadence", "weeks", "ngo_name"],
       },
     },
   },
   {
     type: "function",
     function: {
+      name: "track_food_order",
+      description: "Track delivery status of a scheduled Food meal drop. Maps to Food track_food_order MCP. Call after food_schedule_meal_program.",
+      parameters: {
+        type: "object",
+        properties: {
+          program_id: { type: "string" },
+        },
+        required: ["program_id"],
+      },
+    },
+  },
+  // ─── Dineout ─────────────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
       name: "dineout_community_table",
-      description:
-        "Reserve community-table slots at participating restaurants for festival meals (Diwali, Christmas, Eid) for shelter beneficiaries.",
+      description: "Reserve community-table slots for festival meals. Wraps Dineout search + get_available_slots + book_table MCPs.",
       parameters: {
         type: "object",
         properties: {
@@ -96,6 +158,7 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
           party_size: { type: "integer" },
           date: { type: "string" },
           occasion: { type: "string" },
+          dietary: { type: "string" },
         },
         required: ["location", "party_size", "date", "occasion"],
       },
@@ -104,9 +167,66 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "get_dineout_booking_status",
+      description: "Confirm a Dineout community table reservation. Maps to Dineout get_booking_status MCP.",
+      parameters: {
+        type: "object",
+        properties: {
+          booking_id: { type: "string" },
+        },
+        required: ["booking_id"],
+      },
+    },
+  },
+  // ─── Our product layer ────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "csr_budget_status",
+      description: "OUR LAYER. Check CSR budget: total, spent, remaining, utilization %, days to year-end. Call first when user mentions a budget or asks to deploy funds.",
+      parameters: {
+        type: "object",
+        properties: {
+          corporate_id: { type: "string" },
+        },
+        required: ["corporate_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "schedule_program",
+      description: "OUR LAYER. Register the full CSR program into the recurring scheduler. Returns next-run date and sends a pre-execution confirmation to the CSR admin.",
+      parameters: {
+        type: "object",
+        properties: {
+          program_name: { type: "string" },
+          ngo_name: { type: "string" },
+          total_budget_inr: { type: "number" },
+          cadence: { type: "string", enum: ["weekly", "biweekly", "monthly"] },
+          components: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["instamart_staples", "food_meals", "dineout_tables"] },
+                budget_inr: { type: "number" },
+                description: { type: "string" },
+              },
+              required: ["type", "budget_inr", "description"],
+            },
+          },
+        },
+        required: ["program_name", "ngo_name", "total_budget_inr", "cadence", "components"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "generate_80g_receipt",
-      description:
-        "Generate a Section 80G-compliant donation receipt PDF for the corporate's CSR records. THIS IS OUR PRODUCT LAYER, not Swiggy.",
+      description: "OUR LAYER. Generate a Section 80G-compliant donation receipt PDF.",
       parameters: {
         type: "object",
         properties: {
@@ -124,8 +244,7 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "impact_dashboard_update",
-      description:
-        "Update the corporate's CSR impact dashboard with meals served, cost-per-meal, CO2 saved, ESG-score delta. OUR PRODUCT LAYER.",
+      description: "OUR LAYER. Update CSR impact dashboard with meals served, cost-per-meal, CO2 saved, ESG-score delta.",
       parameters: {
         type: "object",
         properties: {
@@ -133,6 +252,7 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
           meals_served: { type: "integer" },
           beneficiary_ngo: { type: "string" },
           amount_spent_inr: { type: "number" },
+          coupon_savings_inr: { type: "number" },
         },
         required: ["program_id", "meals_served", "beneficiary_ngo", "amount_spent_inr"],
       },
@@ -143,16 +263,18 @@ export const tools: OpenAI.Chat.ChatCompletionTool[] = [
 export const systemPrompt = `You are **Second Helping**, an autonomous CSR procurement agent. You help Indian corporates deploy their mandatory 2% Section 135 CSR budget into recurring meal-sponsorship programs for vetted NGOs and shelters.
 
 You have access to:
-- Swiggy Instamart MCP (bulk staples — rice, dal, oil — at wholesale prices)
-- Swiggy Food MCP (FSSAI-certified partner kitchens for cooked meals)
-- Swiggy Dineout MCP (community-table reservations at participating restaurants for festival meals)
-- An internal compliance layer (80G receipt generation, ESG impact dashboard updates) — these are YOUR product, not Swiggy's.
+- **Swiggy Instamart MCP** (search_products, update_cart, checkout, track_order) — bulk staples at wholesale
+- **Swiggy Food MCP** (search_restaurants, fetch_food_coupons, apply_food_coupon, place_food_order, track_food_order) — FSSAI partner kitchens
+- **Swiggy Dineout MCP** (search + slots + book_table + get_booking_status) — community tables
+- **Our product layer**: csr_budget_status, schedule_program, generate_80g_receipt, impact_dashboard_update
 
-How you work:
-1. The user is typically a CFO, CSR head, or admin in a Slack/Teams thread. They give you a budget, beneficiary NGO, geography, and cadence.
-2. Propose a smart split between bulk staples (cheap calories, biweekly) and cooked meals (FSSAI-certified, daily/weekly drops). Allocate ~70% staples, ~30% cooked meals as a default; tune based on the brief.
-3. For festival weeks, add Dineout community-table reservations.
-4. Once approved, execute via the MCPs, then call generate_80g_receipt and impact_dashboard_update so the corporate has compliance + ESG artifacts on day one.
-5. Speak like a CSR analyst, not a foodie. Numbers, compliance, deadlines.
+## Agent flow — follow this sequence every time
 
-Keep messages crisp — these go into a Slack thread. Use bullet lists with INR figures.`;
+1. **Budget check first**: Call csr_budget_status. Surface utilization % and days-to-year-end. Warn if <60% utilized with <120 days left.
+2. **Propose split**: ~70% Instamart bulk staples (biweekly) + ~30% Food cooked meals (weekly). Dineout for festival weeks.
+3. **Coupon stack**: Before any Food order, call fetch_food_coupons, then apply_food_coupon if a code applies. Report savings.
+4. **Execute + confirm**: After scheduling, call track_instamart_order / track_food_order / get_dineout_booking_status to confirm delivery is in motion.
+5. **Register recurring**: Call schedule_program to persist the full program in the cron scheduler.
+6. **Compliance close**: generate_80g_receipt + impact_dashboard_update.
+
+Speak like a CSR analyst — tight Slack bullets, INR figures, compliance deadlines. Bold key numbers. Always surface: total deployed, ₹/meal, next-drop date, utilization % remaining.`;
