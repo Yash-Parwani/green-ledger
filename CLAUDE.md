@@ -106,9 +106,23 @@ advisory and a prompt-injected document can overwrite it.
 - **Approval binds to a hash of the exact tool call** (`callHashOf`, canonical
   JSON). Approving ₹4L monthly does not approve ₹4L weekly. Without this,
   approval is theatre.
+- **Dual approval is BUILT AND SWITCHED OFF** (`Org.dualApprovalThresholdInr`
+  defaults to `null`, decided 2026-08-02). It is only worth having once the
+  second approver can be *reached*: today the escalation dead-ends in the
+  console, and the only way past it is for whoever is already at the keyboard
+  to type a different address into a box — a typo away from bypass, while
+  blocking legitimate work. That trains people to route around the control.
+  It comes back together with an out-of-band notification (email/WhatsApp to
+  the approver), which shares the suspend-and-resume machinery planned for a
+  resumable `ask_user`. **Don't delete the dormant paths** — the flag on the
+  proposal, the check in `proposals.approve`, the banded comparison in
+  `policy.ts` and the escalated branch of `ApprovalCard` all still work; a
+  regression test confirms setting a threshold restores the behaviour. Turning
+  it on should be a threshold plus a notification, not a rebuild.
 - **Maker-checker compares emails, not session ids** — a session id is
   per-browser, so one person in two tabs would have satisfied "two identities".
-  `Org.adminEmail` is required at registration for this reason, and
+  `Org.adminEmail` is required at registration for this reason (it is the
+  approver of record on the ledger regardless of dual approval), and
   `setup_csr_profile` cannot write it.
 - **Donee verification is a human-only HTTP route** (`/api/second-helping/ngos`).
   There is deliberately no tool to verify an NGO — an agent that can clear its

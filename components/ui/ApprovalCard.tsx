@@ -9,10 +9,16 @@ import { Button } from "@/components/ui/Button";
 // approvals become reflexive.
 //
 // Two shapes, decided by the server, not here:
-//   below threshold — one click, signed-in admin approves as themselves
-//   above threshold — a second approver's email is required
-// The UI reflects that decision; it does not make it. A hand-crafted request
-// still has to get past the same check in lib/server/proposals.ts.
+//   normal — one click, the signed-in admin approves as themselves
+//   escalated — a second approver's email is required
+//
+// The escalated shape is currently unreachable: dual approval is off until a
+// second approver can actually be notified out of band. The path stays because
+// turning it back on should be a threshold plus a notification, not a rebuild.
+// See Org.dualApprovalThresholdInr.
+//
+// The UI reflects the server's decision; it does not make it. A hand-crafted
+// request still has to get past the same check in lib/server/proposals.ts.
 
 type Proposal = {
   id: string;
@@ -147,8 +153,8 @@ export function ApprovalCard({
             </>
           ) : (
             <p className="mt-2.5 text-xs leading-snug text-ink-600">
-              Below your {threshold} second-approver threshold, so you can sign this off yourself. The
-              approval is bound to these exact figures.
+              You&rsquo;re signing this off as {proposal.proposedByEmail}. The approval is bound to
+              these exact figures — change the amount, donee or cadence and it needs approving again.
             </p>
           )}
 

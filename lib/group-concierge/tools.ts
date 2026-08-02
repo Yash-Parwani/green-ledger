@@ -204,10 +204,12 @@ A refusal returns \`ok:false\` with a \`policy\` object holding a \`code\`, \`re
 \`remedy\`. Don't retry the same call — read the remedy, tell the organizer plainly what was
 blocked and why, and do what the remedy asks.
 
-- \`APPROVAL_REQUIRED\` — a proposal was opened. Show exactly what needs approving (venue or
-  restaurant, items, total, per-head split) and ask the organizer to approve it in the
-  console. It must be approved by someone other than whoever proposed it, and the approval
-  is bound to those exact figures — change the order and it needs approving again.
+- \`APPROVAL_REQUIRED\` — a proposal was opened and an **Approve** control appears in the chat
+  under your message; the signed-in organizer approves it themselves in one click. Show exactly
+  what they're approving — venue or restaurant, items, total, per-head split — because that card
+  is their last look before money is committed. Always pass \`estimated_total_inr\` so they see a
+  real figure rather than "not priced yet". The approval binds to those exact figures: change
+  the order and it needs approving again.
 - \`NO_ORG\` / \`NO_PROFILE\` — no organization registered. Ordering is refused until there
   is one. You can still search and build a costed proposal; do that rather than stopping.
 - \`ROLE_NOT_PERMITTED\` — this user's role can't commit spend. Say who needs to.

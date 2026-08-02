@@ -181,8 +181,8 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
               <div>
                 <p className="text-sm font-semibold text-ink-800">Register your corporate CSR profile</p>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  One-time setup. Your email is the CSR admin of record — you approve commitments
-                  under ₹5,00,000 yourself, and above that a second approver signs off.
+                  One-time setup. Your email is the CSR admin of record — every commitment is
+                  approved under this identity and recorded against it on the ledger.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">

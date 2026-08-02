@@ -23,19 +23,27 @@ export type Org = {
    *  no-op — which is why it's required, not optional. */
   adminEmail: string;
   /**
-   * Commitments at or above this need a SECOND approver; below it the admin
-   * approves inline on their own.
+   * Commitments at or above this need a SECOND approver. `null` disables
+   * dual approval entirely — one approver signs everything.
    *
-   * Banded rather than binary because that's how corporate delegation of
-   * authority actually works — a budget holder signs alone up to a limit and
-   * a second signatory joins above it. Making every commitment dual-signed
-   * trains people to rubber-stamp, which is worse than not having the control.
+   * CURRENTLY NULL BY DEFAULT, DELIBERATELY. Dual approval is only meaningful
+   * once the second approver can be *reached*: today the escalation dead-ends
+   * in the console, because the only way for a different person to sign is for
+   * whoever is already at the keyboard to type another email into a box. That
+   * isn't a control, it's a typo away from bypass, and it blocks legitimate
+   * work in the meantime — which trains people to route around it.
+   *
+   * The machinery stays wired up (the flag on the proposal, the check in
+   * proposals.approve, the banded comparison below) so turning it back on is
+   * this constant plus an out-of-band notification — email or WhatsApp to the
+   * approver — rather than a rewrite. Don't delete the dormant paths.
    */
-  dualApprovalThresholdInr: number;
+  dualApprovalThresholdInr: number | null;
   createdAt: number;
 };
 
-export const DEFAULT_DUAL_APPROVAL_THRESHOLD_INR = 500_000;
+/** null = second approver never required. See the note on the field above. */
+export const DEFAULT_DUAL_APPROVAL_THRESHOLD_INR: number | null = null;
 
 export interface OrgRepository {
   get(orgId: string): Promise<Org | null>;
@@ -46,7 +54,7 @@ export interface OrgRepository {
       budgetTotalInr: number;
       adminEmail: string;
       fiscalYearEnd?: string;
-      dualApprovalThresholdInr?: number;
+      dualApprovalThresholdInr?: number | null;
     }
   ): Promise<Org>;
   recordSpend(orgId: string, amountInr: number): Promise<Org | null>;
@@ -66,7 +74,7 @@ class InMemoryOrgRepository implements OrgRepository {
       budgetTotalInr: number;
       adminEmail: string;
       fiscalYearEnd?: string;
-      dualApprovalThresholdInr?: number;
+      dualApprovalThresholdInr?: number | null;
     }
   ): Promise<Org> {
     const existing = this.orgs.get(orgId);
@@ -76,9 +84,9 @@ class InMemoryOrgRepository implements OrgRepository {
       budgetTotalInr: input.budgetTotalInr,
       adminEmail: input.adminEmail.trim().toLowerCase(),
       dualApprovalThresholdInr:
-        input.dualApprovalThresholdInr ??
-        existing?.dualApprovalThresholdInr ??
-        DEFAULT_DUAL_APPROVAL_THRESHOLD_INR,
+        input.dualApprovalThresholdInr !== undefined
+          ? input.dualApprovalThresholdInr
+          : (existing?.dualApprovalThresholdInr ?? DEFAULT_DUAL_APPROVAL_THRESHOLD_INR),
       // Spend is never reset by a profile edit — changing your budget must not
       // silently wipe what you've already committed.
       budgetSpentInr: existing?.budgetSpentInr ?? 0,

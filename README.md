@@ -26,7 +26,10 @@ it off.
 
 - **Approval is required** for anything that commits money, and it binds to a hash
   of the exact tool call. Approving ₹4L monthly does not approve ₹4L weekly.
-- **Maker-checker**: the identity that proposes cannot be the identity that approves.
+- **Every approval is attributed** — recorded against the CSR admin of record, on the
+  ledger, with the timestamp. Two-person approval is built but currently switched off;
+  it's only meaningful once the second approver can be notified out of band, and until
+  then escalation just dead-ends in the console. See `CLAUDE.md`.
 - **Donee verification**: no spend against an NGO whose 80G/12A registration a human
   hasn't verified. There is deliberately no tool that lets the agent verify one.
 - **Ceilings**: annual budget, 90% utilization, and a rolling 24h cap.

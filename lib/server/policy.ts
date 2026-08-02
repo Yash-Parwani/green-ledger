@@ -286,11 +286,15 @@ export async function evaluate(
   const approved = await proposals.findApprovedByCallHash(ctx.orgId, hash);
   if (approved) return { allow: true, proposalId: approved.id };
 
-  // Amount-banded second approver. An unknown amount escalates: a cart whose
-  // total nobody knows yet is exactly the case where a second pair of eyes is
-  // worth most. Quote it first (food_menu_quote / instamart_search_bulk) and
-  // pass the figure through, and it bands normally.
-  const requiresSecondApprover = amount === null || amount >= org.dualApprovalThresholdInr;
+  // Amount-banded second approver, DORMANT while the threshold is null — see
+  // the note on Org.dualApprovalThresholdInr. With no way to actually reach a
+  // second approver, escalating only dead-ends the flow. When the notification
+  // channel lands, set a threshold and this comes back with no other change:
+  // an unknown amount escalates too, because a cart whose total nobody knows
+  // is exactly where a second pair of eyes is worth most.
+  const threshold = org.dualApprovalThresholdInr;
+  const requiresSecondApprover =
+    threshold !== null && (amount === null || amount >= threshold);
 
   const proposal = await proposals.create({
     orgId: ctx.orgId,
@@ -306,16 +310,16 @@ export async function evaluate(
     proposedByRole: ctx.role,
   });
 
-  const threshold = `₹${org.dualApprovalThresholdInr.toLocaleString("en-IN")}`;
+  const thresholdLabel = threshold !== null ? `₹${threshold.toLocaleString("en-IN")}` : null;
   return {
     allow: false,
     code: "APPROVAL_REQUIRED",
     reason: `This commitment needs human approval before it can execute: ${proposal.summary}`,
     remedy: requiresSecondApprover
-      ? `A proposal has been opened, and this one is above the ${threshold} second-approver threshold${
+      ? `A proposal has been opened, and this one is above the ${thresholdLabel} second-approver threshold${
           amount === null ? " (its total isn't known yet, which escalates by default)" : ""
         } — so it must be approved by someone other than the CSR admin who proposed it. Tell the user that plainly, show them what needs approving, and note the approval is bound to these exact figures: changing any of them requires a fresh approval.`
-      : `A proposal has been opened. It's below the ${threshold} second-approver threshold, so the signed-in CSR admin can approve it themselves — the approve control is in the chat, right under this message. Show them exactly what they're approving, and note the approval is bound to these exact figures: changing any of them requires a fresh approval.`,
+      : `A proposal has been opened. The signed-in CSR admin can approve it themselves — the approve control is in the chat, right under this message, one click. Show them exactly what they're approving, and note the approval is bound to these exact figures: changing any of them requires a fresh approval.`,
     proposalId: proposal.id,
   };
 }
