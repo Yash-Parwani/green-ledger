@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { useAgentChat } from "@/lib/shared/useAgentChat";
 import { buildDashboardData } from "@/lib/second-helping/dashboardData";
-import { extractPlanCards, extractPaymentSimulations } from "@/lib/second-helping/extractPlans";
+import { extractPlanCards, extractPaymentSimulations, extractApprovalRequests } from "@/lib/second-helping/extractPlans";
 import { TOOL_SOURCE } from "@/lib/second-helping/toolSource";
 import { ChatBubble } from "@/components/ui/ChatBubble";
 import { Markdown } from "@/components/ui/Markdown";
@@ -12,6 +12,7 @@ import { ToolTrajectory } from "@/components/ui/ToolTrajectory";
 import { MetricTile } from "@/components/ui/MetricTile";
 import { PlanCard } from "@/components/ui/PlanCard";
 import { PaymentSimulatedCard } from "@/components/ui/PaymentSimulatedCard";
+import { ApprovalCard } from "@/components/ui/ApprovalCard";
 import { Button } from "@/components/ui/Button";
 import { ApprovalsPanel } from "@/components/console/ApprovalsPanel";
 import { DoneesPanel } from "@/components/console/DoneesPanel";
@@ -95,6 +96,9 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
     [trajectory, dismissedCardIds]
   );
   const paymentSimCards = useMemo(() => extractPaymentSimulations(trajectory), [trajectory]);
+  const approvalRequests = useMemo(() => extractApprovalRequests(trajectory), [trajectory]);
+  // Bumped when an approval is recorded, so the side panels re-read too.
+  const [approvalsVersion, setApprovalsVersion] = useState(0);
 
   useEffect(() => {
     messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
@@ -148,8 +152,8 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
               <div>
                 <p className="text-sm font-semibold text-ink-800">Register your corporate CSR profile</p>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  One-time setup. Your email is the CSR admin of record — spend you propose has to be
-                  approved by someone else, and this is the identity that&rsquo;s checked against.
+                  One-time setup. Your email is the CSR admin of record — you approve commitments
+                  under ₹5,00,000 yourself, and above that a second approver signs off.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -245,6 +249,20 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
             </div>
           )}
 
+          {/* Inline, under the message that proposed the spend — approving
+              belongs where the agent asked, not in a panel off to the side. */}
+          {approvalRequests.length > 0 && (
+            <div className="flex flex-col gap-3 pt-1">
+              {approvalRequests.map((req) => (
+                <ApprovalCard
+                  key={req.proposalId}
+                  proposalId={req.proposalId}
+                  onDecided={() => setApprovalsVersion((v) => v + 1)}
+                />
+              ))}
+            </div>
+          )}
+
           {loading && (
             <ChatBubble role="assistant" author="Second Helping">
               <span className="italic text-ink-400">Checking budget · Searching Swiggy MCPs · Stacking coupons…</span>
@@ -321,8 +339,8 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
 
         {/* Keyed off trajectory length so a policy refusal or a fresh proposal
             shows up as soon as the agent's turn lands, without polling. */}
-        <ApprovalsPanel refreshKey={trajectory.length} />
-        <DoneesPanel refreshKey={trajectory.length} />
+        <ApprovalsPanel refreshKey={trajectory.length + approvalsVersion} />
+        <DoneesPanel refreshKey={trajectory.length + approvalsVersion} />
 
         {programs.length > 0 && (
           <div className="rounded-2xl border border-ink-200 bg-white p-4">

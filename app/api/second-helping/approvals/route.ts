@@ -1,5 +1,6 @@
 import { proposals } from "@/lib/server/proposals";
 import { ledger } from "@/lib/server/ledger";
+import { repo } from "@/lib/server/orgStore";
 import { getSession } from "@/lib/server/session";
 
 export const runtime = "nodejs";
@@ -27,9 +28,28 @@ export async function POST(req: Request) {
   if (!id || (action !== "approve" && action !== "reject")) {
     return Response.json({ error: "id and action ('approve' | 'reject') are required" }, { status: 400 });
   }
-  const email = approver_email?.trim().toLowerCase();
+
+  const proposal = await proposals.get(session.orgId, id);
+  if (!proposal) return Response.json({ error: "No such proposal." }, { status: 404 });
+
+  // Below the threshold the signed-in admin approves as themselves — one
+  // click, nothing to type. Above it a second identity is required, and it
+  // must be supplied explicitly: defaulting to the signed-in user there would
+  // silently defeat maker-checker.
+  const org = await repo.get(session.orgId);
+  const email = proposal.requiresSecondApprover
+    ? approver_email?.trim().toLowerCase()
+    : (approver_email?.trim().toLowerCase() || org?.adminEmail);
+
   if (!email || !email.includes("@")) {
-    return Response.json({ error: "A valid approver_email is required" }, { status: 400 });
+    return Response.json(
+      {
+        error: proposal.requiresSecondApprover
+          ? "This commitment is above the second-approver threshold — a second approver's email is required."
+          : "A valid approver_email is required",
+      },
+      { status: 400 }
+    );
   }
 
   const result =

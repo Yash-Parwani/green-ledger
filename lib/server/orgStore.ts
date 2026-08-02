@@ -22,14 +22,32 @@ export type Org = {
    *  "the proposer can't approve" has nothing to compare and the rule is a
    *  no-op — which is why it's required, not optional. */
   adminEmail: string;
+  /**
+   * Commitments at or above this need a SECOND approver; below it the admin
+   * approves inline on their own.
+   *
+   * Banded rather than binary because that's how corporate delegation of
+   * authority actually works — a budget holder signs alone up to a limit and
+   * a second signatory joins above it. Making every commitment dual-signed
+   * trains people to rubber-stamp, which is worse than not having the control.
+   */
+  dualApprovalThresholdInr: number;
   createdAt: number;
 };
+
+export const DEFAULT_DUAL_APPROVAL_THRESHOLD_INR = 500_000;
 
 export interface OrgRepository {
   get(orgId: string): Promise<Org | null>;
   upsert(
     orgId: string,
-    input: { name: string; budgetTotalInr: number; adminEmail: string; fiscalYearEnd?: string }
+    input: {
+      name: string;
+      budgetTotalInr: number;
+      adminEmail: string;
+      fiscalYearEnd?: string;
+      dualApprovalThresholdInr?: number;
+    }
   ): Promise<Org>;
   recordSpend(orgId: string, amountInr: number): Promise<Org | null>;
 }
@@ -43,7 +61,13 @@ class InMemoryOrgRepository implements OrgRepository {
 
   async upsert(
     orgId: string,
-    input: { name: string; budgetTotalInr: number; adminEmail: string; fiscalYearEnd?: string }
+    input: {
+      name: string;
+      budgetTotalInr: number;
+      adminEmail: string;
+      fiscalYearEnd?: string;
+      dualApprovalThresholdInr?: number;
+    }
   ): Promise<Org> {
     const existing = this.orgs.get(orgId);
     const next: Org = {
@@ -51,6 +75,10 @@ class InMemoryOrgRepository implements OrgRepository {
       name: input.name,
       budgetTotalInr: input.budgetTotalInr,
       adminEmail: input.adminEmail.trim().toLowerCase(),
+      dualApprovalThresholdInr:
+        input.dualApprovalThresholdInr ??
+        existing?.dualApprovalThresholdInr ??
+        DEFAULT_DUAL_APPROVAL_THRESHOLD_INR,
       // Spend is never reset by a profile edit — changing your budget must not
       // silently wipe what you've already committed.
       budgetSpentInr: existing?.budgetSpentInr ?? 0,

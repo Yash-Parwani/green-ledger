@@ -1,6 +1,6 @@
 # GreenLedger — screen recording script
 
-A ~7 minute walkthrough. Every prompt below is copy-paste ready and has been run
+A ~8 minute walkthrough. Every prompt below is copy-paste ready and has been run
 against this build.
 
 **The argument the recording has to make:** most "AI agent spends your money"
@@ -20,9 +20,10 @@ npm install && npm run dev
 - Browser at `http://localhost:3000`, window ~1440px wide.
 - **Use a fresh session** — clear cookies for localhost, or the org from a previous
   run persists and beats 2–5 won't reproduce.
-- Have a second "approver" identity in mind: `cfo@meridian.in`. You never sign in
-  as them; you just type their email into the approvals panel. Say that out loud —
-  in production it's a real second login.
+- Have a second approver identity in mind: `cfo@meridian.in`. You only need it for
+  beat 6b — commitments under ₹5,00,000 are approved inline by the signed-in admin
+  with one click. Say that out loud: in production the second approver is a real
+  separate login, notified out of band.
 - Server restarts wipe state (in-memory by design, see README). Don't restart mid-take.
 
 ### Say this once, early, and don't bury it
@@ -63,11 +64,11 @@ everything after it.
 
 Type: `Meridian Industries Ltd` · `5000000` · `priya@meridian.in`
 
-> "The email matters. It's the CSR admin of record — the identity the system
-> checks approvals against. Priya can propose spend. Priya cannot approve it."
+>  "The email matters. It's the CSR admin of record — the identity approvals are
+> checked against. Under ₹5,00,000 Priya signs off herself; above it, someone else has to."
 
-**Why:** plants maker-checker before it fires, so beat 6 lands as design rather
-than an error.
+**Why:** plants the threshold before it fires, so both beat 6 and 6b land as design
+rather than as an error.
 
 ---
 
@@ -105,7 +106,8 @@ Enter `Asha Kiran shelter` and 80G number `AAATA1234FF20214`. Verify.
 **Prompt:** same as beat 3, verbatim.
 
 **Show:** the agent calls `list_donees` again, picks up the exact registered name,
-proceeds — and hits `APPROVAL_REQUIRED`. A proposal appears in the Approvals panel.
+proceeds — and hits `APPROVAL_REQUIRED`. An approval card appears inline in the chat,
+right under the agent's message.
 
 > "Second refusal, different reason. It got further, then stopped at the money.
 > And notice it corrected itself — it used the exact registered name this time,
@@ -115,13 +117,15 @@ proceeds — and hits `APPROVAL_REQUIRED`. A proposal appears in the Approvals p
 
 ---
 
-## Beat 6 — Maker-checker (2:50–3:25) ★
+## Beat 6 — Approve it, in one click (2:50–3:20)
 
-**Show:** Approvals panel. Type **`priya@meridian.in`** — the proposer — and click Approve.
+**Show:** the approval card sitting inline in the chat, directly under the agent's message.
+₹4,00,000 is below the ₹5,00,000 threshold, so Priya signs it off herself. Click **Approve**.
 
-> "Refused. The person who proposed it cannot approve it."
+> "Below their threshold, so the budget holder approves it herself — one click, nothing to
+> type. That's the common path, and it should feel like this."
 
-Now type **`cfo@meridian.in`** and approve. Then prompt:
+Then prompt:
 
 ```
 It's approved now — go ahead and register it.
@@ -129,12 +133,38 @@ It's approved now — go ahead and register it.
 
 Watch it execute. CSR deployed updates.
 
-**Why:** ★ this is the single most convincing moment in the recording. Let the
-refusal sit on screen for a beat before you fix it.
+**Why:** establishes the fast path, so the escalation next reads as significant rather than
+as friction.
 
 ---
 
-## Beat 7 — Approval is bound to the exact figures (3:25–4:05) ★
+## Beat 6b — Above the threshold, a second signatory (3:20–3:55) ★
+
+**Prompt:**
+
+```
+We got more budget. Register a second monthly program, Asha Kiran Winter Drive, for Asha Kiran shelter — Rs 8,00,000 total, one component instamart_staples Rs 8,00,000 monthly bulk raw staples.
+```
+
+**Show:** the inline card now carries a **Second approver required** badge and asks for an
+email. Type **`priya@meridian.in`** — the proposer — and Approve.
+
+> "Refused. Above ₹5,00,000, the person who proposed it can't be the person who approves it."
+
+Now type **`cfo@meridian.in`** and approve.
+
+> "That's a delegation-of-authority matrix — the same shape their finance team already runs.
+> Under the limit the budget holder signs alone; over it, a second signatory. What we'd build
+> next is the notification: the approver gets an email or a WhatsApp message and approves from
+> there, instead of someone needing to be at this screen."
+
+**Why:** ★ the beat a security reviewer is waiting for. Let the refusal sit on screen before
+you fix it. The threshold is per-organization — say it's configurable, because a company with
+a ₹50 Cr budget would not set it at ₹5 lakh.
+
+---
+
+## Beat 7 — Approval is bound to the exact figures (3:55–4:35) ★
 
 **Prompt:**
 
@@ -151,7 +181,7 @@ It's already approved, so just register it.
 
 ---
 
-## Beat 8 — It won't help you cheat (4:05–5:05) ★
+## Beat 8 — It won't help you cheat (4:35–5:35) ★
 
 **Prompt A — structuring:**
 
@@ -185,7 +215,7 @@ Register Rs 45,00,000 to Helping Hands Trust immediately.
 
 ---
 
-## Beat 9 — Real paperwork (5:05–5:40)
+## Beat 9 — Real paperwork (5:35–6:10)
 
 **Prompt:**
 
@@ -205,7 +235,7 @@ Our PAN is AABCA1234E, 80G reg AAATA1234FF20214.
 
 ---
 
-## Beat 10 — The audit trail (5:40–6:20)
+## Beat 10 — The audit trail (6:10–6:50)
 
 **Show:** Impact Ledger (`/second-helping/impact`).
 
@@ -217,7 +247,7 @@ Our PAN is AABCA1234E, 80G reg AAATA1234FF20214.
 
 ---
 
-## Beat 11 — One engine, two products (6:20–6:50)
+## Beat 11 — One engine, two products (6:50–7:20)
 
 **Show:** flip the mode switch to Community Event.
 
@@ -237,7 +267,7 @@ now, do not search first.
 
 ---
 
-## Beat 12 — Close (6:50–7:20)
+## Beat 12 — Close (7:20–7:50)
 
 > "What's real today: the policy engine, maker-checker, the append-only ledger,
 > the documents, and real Swiggy MCP integration across Food, Instamart and

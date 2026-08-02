@@ -15,6 +15,7 @@ type Proposal = {
   ngoName?: string;
   summary: string;
   status: "awaiting_approval" | "approved" | "rejected" | "executed";
+  requiresSecondApprover: boolean;
   proposedByEmail: string;
   proposedAt: number;
   approvedByEmail?: string;
@@ -48,7 +49,7 @@ export function ApprovalsPanel({ refreshKey }: { refreshKey: number }) {
     load();
   }, [load, refreshKey]);
 
-  async function decide(id: string, action: "approve" | "reject") {
+  async function decide(id: string, action: "approve" | "reject", needsSecond: boolean) {
     setBusyId(id);
     setError(null);
     try {
@@ -58,7 +59,9 @@ export function ApprovalsPanel({ refreshKey }: { refreshKey: number }) {
         body: JSON.stringify({
           id,
           action,
-          approver_email: approverEmail.trim(),
+          // Only sent when a second identity is actually required; below the
+          // threshold the server signs as the admin of record.
+          ...(needsSecond ? { approver_email: approverEmail.trim() } : {}),
           reason: action === "reject" ? "Rejected in console" : undefined,
         }),
       });
@@ -84,11 +87,11 @@ export function ApprovalsPanel({ refreshKey }: { refreshKey: number }) {
         Spend the agent proposed and policy held. Approval is bound to these exact figures.
       </p>
 
-      {pending.length > 0 && (
+      {pending.some((p) => p.requiresSecondApprover) && (
         <input
           value={approverEmail}
           onChange={(e) => setApproverEmail(e.target.value)}
-          placeholder="Your email (approver)"
+          placeholder="Second approver's email"
           type="email"
           className="mb-3 w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs text-ink-800 placeholder:text-ink-400 focus:border-orange-400 focus:outline-none"
         />
@@ -107,19 +110,20 @@ export function ApprovalsPanel({ refreshKey }: { refreshKey: number }) {
             <p className="mt-0.5 text-[11px] text-ink-500">
               Proposed by {p.proposedByEmail}
               {p.amountInr !== null && ` · ₹${p.amountInr.toLocaleString("en-IN")}`}
+              {p.requiresSecondApprover && " · needs a second approver"}
             </p>
             <div className="mt-2 flex gap-2">
               <Button
-                onClick={() => decide(p.id, "approve")}
-                disabled={busyId === p.id || !approverEmail.includes("@")}
+                onClick={() => decide(p.id, "approve", p.requiresSecondApprover)}
+                disabled={busyId === p.id || (p.requiresSecondApprover && !approverEmail.includes("@"))}
                 variant="success"
                 className="!px-3 !py-1 !text-[11px]"
               >
                 Approve
               </Button>
               <Button
-                onClick={() => decide(p.id, "reject")}
-                disabled={busyId === p.id || !approverEmail.includes("@")}
+                onClick={() => decide(p.id, "reject", p.requiresSecondApprover)}
+                disabled={busyId === p.id || (p.requiresSecondApprover && !approverEmail.includes("@"))}
                 className="!px-3 !py-1 !text-[11px]"
               >
                 Reject

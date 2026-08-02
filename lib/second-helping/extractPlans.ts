@@ -15,6 +15,39 @@ export type ExtractedPaymentSimulation = {
   note: string;
 };
 
+/** A policy refusal that opened a proposal, surfaced inline so the approval
+ *  happens where the agent raised it rather than in a panel off to the side. */
+export type ExtractedApprovalRequest = {
+  toolId: string;
+  proposalId: string;
+  reason: string;
+  remedy: string;
+};
+
+export function extractApprovalRequests(trajectory: TrajEntry[]): ExtractedApprovalRequest[] {
+  const found = new Map<string, ExtractedApprovalRequest>();
+
+  for (const entry of trajectory) {
+    if (entry.kind !== "tool_result") continue;
+    const output = entry.output as {
+      policy?: { code?: string; reason?: string; remedy?: string; proposal_id?: string };
+    };
+    const policy = output?.policy;
+    if (policy?.code !== "APPROVAL_REQUIRED" || !policy.proposal_id) continue;
+
+    // Keyed by proposal id: an agent that retries a blocked call gets the same
+    // proposal back, and one pending decision should render once.
+    found.set(policy.proposal_id, {
+      toolId: entry.id,
+      proposalId: policy.proposal_id,
+      reason: policy.reason ?? "This commitment needs approval before it can execute.",
+      remedy: policy.remedy ?? "",
+    });
+  }
+
+  return Array.from(found.values());
+}
+
 export function extractPaymentSimulations(trajectory: TrajEntry[]): ExtractedPaymentSimulation[] {
   const cards: ExtractedPaymentSimulation[] = [];
 

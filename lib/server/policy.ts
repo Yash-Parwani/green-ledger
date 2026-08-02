@@ -267,6 +267,12 @@ export async function evaluate(
   const approved = await proposals.findApprovedByCallHash(ctx.orgId, hash);
   if (approved) return { allow: true, proposalId: approved.id };
 
+  // Amount-banded second approver. An unknown amount escalates: a cart whose
+  // total nobody knows yet is exactly the case where a second pair of eyes is
+  // worth most. Quote it first (food_menu_quote / instamart_search_bulk) and
+  // pass the figure through, and it bands normally.
+  const requiresSecondApprover = amount === null || amount >= org.dualApprovalThresholdInr;
+
   const proposal = await proposals.create({
     orgId: ctx.orgId,
     callHash: hash,
@@ -275,17 +281,22 @@ export async function evaluate(
     amountInr: amount,
     ngoName,
     summary: spec.describe(input),
+    requiresSecondApprover,
     proposedBy: ctx.userId,
     proposedByEmail: org.adminEmail,
     proposedByRole: ctx.role,
   });
 
+  const threshold = `₹${org.dualApprovalThresholdInr.toLocaleString("en-IN")}`;
   return {
     allow: false,
     code: "APPROVAL_REQUIRED",
     reason: `This commitment needs human approval before it can execute: ${proposal.summary}`,
-    remedy:
-      "A proposal has been opened. Present it to the user and ask them to approve it in the console. Approval must come from someone other than whoever proposed it, and it is bound to these exact figures — changing any of them will require a fresh approval.",
+    remedy: requiresSecondApprover
+      ? `A proposal has been opened, and this one is above the ${threshold} second-approver threshold${
+          amount === null ? " (its total isn't known yet, which escalates by default)" : ""
+        } — so it must be approved by someone other than the CSR admin who proposed it. Tell the user that plainly, show them what needs approving, and note the approval is bound to these exact figures: changing any of them requires a fresh approval.`
+      : `A proposal has been opened. It's below the ${threshold} second-approver threshold, so the signed-in CSR admin can approve it themselves — the approve control is in the chat, right under this message. Show them exactly what they're approving, and note the approval is bound to these exact figures: changing any of them requires a fresh approval.`,
     proposalId: proposal.id,
   };
 }
