@@ -64,7 +64,7 @@ export const tools: AnthropicTool[] = [
   {
     name: "food_partner_kitchens",
     description:
-      "Find partner kitchens that can deliver to the NGO. READ-ONLY. Requires the NGO's actual delivery address — Swiggy resolves availability and delivery radius from it, so a kitchen found by searching a city name may not deliver to the specific locality. Get the delivery address from the user BEFORE calling this; don't search on a city and collect the address afterwards. Note that Swiggy's search returns no FSSAI field, so `certified_fssai` comes back null — say 'not confirmed', never imply certification.",
+      "Find partner kitchens that can deliver to the NGO. READ-ONLY. Requires the NGO's actual delivery address — Swiggy resolves availability and delivery radius from it, so a kitchen found by searching a city name may not deliver to the specific locality. Get the delivery address from the user BEFORE calling this; don't search on a city and collect the address afterwards. Results include paid placements marked \"(Ad)\" — say so when you list or recommend one.",
     input_schema: {
       type: "object",
       properties: {
@@ -115,7 +115,8 @@ export const tools: AnthropicTool[] = [
   },
   {
     name: "fetch_food_coupons",
-    description: "Fetch bulk/B2B Swiggy Food coupons. ALWAYS call before placing a food order to maximise CSR efficiency. Maps to Food fetch_food_coupons MCP.",
+    description:
+      "Check Swiggy Food coupons for a kitchen. Swiggy documents this at the CART stage, and calling it before a cart exists has been observed returning HTTP 400 — so don't call it while you're still quoting. Call it at most ONCE per kitchen, and if it errors, report savings as UNKNOWN rather than zero and carry on. A failed coupon lookup is not a reason to block a programme, and retrying it in the same turn just produces a second identical error.",
     input_schema: {
       type: "object",
       properties: {
@@ -351,7 +352,7 @@ export const systemPrompt = `You are **Second Helping**, an autonomous CSR procu
 
 You have access to:
 - **Swiggy Instamart MCP** (search_products, update_cart, checkout, track_order) — bulk staples at wholesale
-- **Swiggy Food MCP** (search_restaurants, fetch_food_coupons, apply_food_coupon, place_food_order, track_food_order) — FSSAI partner kitchens
+- **Swiggy Food MCP** (search_restaurants, fetch_food_coupons, apply_food_coupon, place_food_order, track_food_order) — partner kitchens
 - **Swiggy Dineout MCP** (search + slots + book_table + get_booking_status) — community tables
 - **Our product layer**: setup_csr_profile, csr_budget_status, schedule_program, generate_80g_receipt, generate_gst_invoice, impact_dashboard_update
 
@@ -419,7 +420,7 @@ A good clarifying question beats a wrong five-figure order. One question at a ti
 2. **Decide sourcing** using the cooked-vs-raw framework above — ask if it's genuinely ambiguous, otherwise proceed. Dineout for festival/community-table occasions.
 3. **Get the delivery address, then find vendors**: address first, then \`food_partner_kitchens\` / \`instamart_search_bulk\`. Both are read-only.
 4. **Price it for real**: \`food_menu_quote\` (or the Instamart search results) to get actual dishes and actual prices. Still read-only — nothing commits here.
-5. **Coupon stack**: Before any Food order, call fetch_food_coupons with the *quoted* order value, then apply_food_coupon if a code applies. Report savings.
+5. **Coupon stack** (optional, never blocking): Swiggy documents coupons at the cart stage, so a lookup before a cart exists may 400. Try it once with the quoted order value; if it works, apply the code and report the saving. If it errors, say savings are **unknown — not zero** and move on. Never retry it in the same turn, and never hold up a programme over it.
 6. **Show the user the real plate and the real total, and get their confirmation** — dish names, per-portion prices, per-drop cost, programme total, drop count. This happens *before* the approval proposal, and it is not optional even when the user said "you pick".
 7. **Build the cart / register recurring**: only now call the committing tools — food_schedule_meal_program / instamart_schedule_recurring, then schedule_program to persist the programme and count its budget against CSR spend. Expect APPROVAL_REQUIRED; that's the gate, not a failure.
 8. **Execute + confirm**: Once approved, call track_instamart_order / track_food_order / get_dineout_booking_status to confirm delivery is in motion.

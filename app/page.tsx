@@ -9,7 +9,7 @@ import { LiveDemoChat } from "@/components/console/LiveDemoChat";
 // usage metrics here until they're real and pulled from the ledger.
 const HERO_STATS = [
   { value: "3", label: "SWIGGY SURFACES — FOOD, INSTAMART, DINEOUT", color: "#0C744B" },
-  { value: "0", label: "RUPEES COMMITTABLE WITHOUT A SECOND APPROVER", color: "#A24405" },
+  { value: "0", label: "RUPEES COMMITTABLE WITHOUT A HUMAN APPROVAL", color: "#A24405" },
   { value: "100%", label: "OF SPEND DECISIONS WRITTEN TO AN APPEND-ONLY LEDGER", color: "#17140F" },
 ];
 
@@ -17,12 +17,12 @@ const HERO_STATS = [
 // are the shape of a typical program, labelled as such — not reported spend.
 const PROGRAM_BARS = [
   { name: "Instamart bulk staples", pct: 62, detail: "for NGOs that cook on-site" },
-  { name: "Food partner kitchens", pct: 28, detail: "cooked meals, FSSAI kitchens" },
+  { name: "Food partner kitchens", pct: 28, detail: "cooked meals from partner kitchens" },
   { name: "Dineout community tables", pct: 10, detail: "festival and community meals" },
 ];
 
 const LEDGER_ROWS = [
-  { label: "Every commitment", value: "approved by a second person" },
+  { label: "Every commitment", value: "approved by a person, on the record" },
   { label: "Every donee", value: "80G/12A verified before spend" },
   { label: "Every rupee", value: "80G receipt + GST invoice, as PDFs" },
 ];

@@ -130,7 +130,6 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
       const kitchens = (output.data.kitchens ?? []) as {
         id?: string;
         name?: string;
-        certified_fssai?: boolean | null;
         dietary_compliance?: string[];
         per_meal_inr?: number;
         capacity_per_day?: number;
@@ -144,12 +143,6 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
           id: k.id ?? String(i),
           title: stripAdSuffix(k.name) ?? "Kitchen",
           promoted: isPromoted(k.name),
-          subtitle:
-            k.certified_fssai === true
-              ? "FSSAI certified"
-              : k.certified_fssai === false
-                ? "Not FSSAI certified"
-                : "FSSAI status unverified",
           meta: [
             ...(k.dietary_compliance ?? []),
             ...(k.capacity_per_day ? [`Capacity ${k.capacity_per_day.toLocaleString("en-IN")}/day`] : []),

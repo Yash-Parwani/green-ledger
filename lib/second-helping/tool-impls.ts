@@ -262,7 +262,13 @@ export async function food_partner_kitchens(input: {
         kitchens: open.slice(0, 5).map((r) => ({
           id: r.restaurantId ?? r.id,
           name: r.name,
-          certified_fssai: null, // not exposed by real search_restaurants
+          // No FSSAI field. Swiggy's search_restaurants doesn't expose licence
+          // status, so we used to return `certified_fssai: null` and the card
+          // rendered "FSSAI status unverified" against every kitchen — which
+          // manufactures doubt about every vendor while conveying nothing.
+          // A compliance field we can never populate is worse than no field.
+          // If Swiggy exposes it, add it back as a real value, never as a
+          // permanent "unverified".
           dietary_compliance: input.dietary ?? [],
         })),
         query: input,
