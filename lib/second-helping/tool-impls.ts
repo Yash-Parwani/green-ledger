@@ -233,7 +233,11 @@ export async function track_instamart_order(input: {
 
 // ─── Food: search_restaurants ────────────────────────────────────────────────
 export async function food_partner_kitchens(input: {
-  location: string;
+  // The NGO's actual delivery address, not a city name. Swiggy resolves
+  // availability and delivery radius from this, so searching on "Pune" and
+  // then delivering to Yerawada can surface kitchens that don't deliver there.
+  // Ask the user for the address before searching rather than after.
+  delivery_address: string;
   meal_type: "north_indian" | "south_indian" | "khichdi" | "biryani";
   servings: number;
   dietary?: string[];
@@ -241,7 +245,7 @@ export async function food_partner_kitchens(input: {
   const token = await realMcpToken();
   if (!token) return NOT_CONNECTED;
   try {
-    const addressId = await resolveFoodOrInstamartAddressId("food", token, input.location);
+    const addressId = await resolveFoodOrInstamartAddressId("food", token, input.delivery_address);
     const query = input.meal_type.replace("_", " ");
     const res = await callSwiggyTool("food", "search_restaurants", { addressId, query }, token);
     const data = res.data as { restaurants?: unknown[]; results?: unknown[] } | undefined;
@@ -313,6 +317,157 @@ export async function apply_food_coupon(input: {
   }
 }
 
+// ─── Food: menu resolution ────────────────────────────────────────────────────
+//
+// Shared by the read-only quote and the cart builder, deliberately. If the
+// quote resolved dishes differently from the cart, the prices shown to the
+// customer before approval wouldn't be the prices actually ordered — and the
+// whole point of quoting first is that the approved figures are the real ones.
+// Change matching here or in neither place.
+
+type ResolvedMenu = {
+  cartItems: Record<string, unknown>[];
+  menuSummary: { name: string; quantity: number; price_inr: number; line_total_inr: number }[];
+  unmatched: string[];
+  perDropTotal: number;
+  kitchenName?: string;
+};
+
+async function resolveMenuSelection(
+  token: string,
+  addressId: string,
+  kitchenId: string,
+  picks: { query: string; quantity: number }[],
+  dietaryNotes?: string
+): Promise<ResolvedMenu> {
+  const cartItems: Record<string, unknown>[] = [];
+  const menuSummary: ResolvedMenu["menuSummary"] = [];
+  const unmatched: string[] = [];
+  let perDropTotal = 0;
+  let kitchenName: string | undefined;
+
+  // Live search_menu returns non-veg items for neutral queries (a "rice"
+  // search at a veg program returned chicken biryani), so a veg program MUST
+  // pass vegFilter:1 — serving non-veg to a shelter that asked for veg is a
+  // program-ending failure, not a cosmetic one.
+  const vegOnly = /\bveg\b|vegetarian|jain|no.?onion|satvik/i.test(dietaryNotes ?? "");
+
+  for (const pick of picks) {
+    const res = await callSwiggyTool(
+      "food",
+      "search_menu",
+      {
+        addressId,
+        query: pick.query,
+        restaurantIdOfAddedItem: kitchenId,
+        ...(vegOnly ? { vegFilter: 1 } : {}),
+      },
+      token
+    );
+    const items = ((res.data as { items?: Record<string, unknown>[] } | undefined)?.items ??
+      []) as Record<string, unknown>[];
+    // Only order what's actually in stock at this kitchen. Live search_menu
+    // items carry `inStock` (1/0) and `restaurant_id`; search can return items
+    // from other restaurants even when scoped, and a cart may only contain
+    // items from one restaurant.
+    const match = items.find(
+      (i) => i.inStock !== 0 && String(i.restaurant_id ?? kitchenId) === String(kitchenId)
+    );
+    const price = typeof match?.price === "number" ? (match.price as number) : 0;
+    if (!match || !price) {
+      // Never cost a line we couldn't price. Surfaced to the caller so the
+      // agent reports a short plate instead of silently quoting for less food.
+      unmatched.push(pick.query);
+      continue;
+    }
+    kitchenName ??= match.restaurant_name as string | undefined;
+    perDropTotal += price * pick.quantity;
+    // Live search_menu items have `menu_item_id` and `hasVariants:false` — NOT
+    // the `variations`/`variantsV2` the docs describe. Swiggy does not document
+    // the cartItems element shape, so send the identifying fields explicitly
+    // rather than spreading the whole search result.
+    cartItems.push({
+      menu_item_id: match.menu_item_id,
+      quantity: pick.quantity,
+      ...(match.hasVariants ? { variations: match.variations, variantsV2: match.variantsV2 } : {}),
+    });
+    menuSummary.push({
+      name: (match.name as string) ?? pick.query,
+      quantity: pick.quantity,
+      price_inr: price,
+      line_total_inr: price * pick.quantity,
+    });
+  }
+
+  return { cartItems, menuSummary, unmatched, perDropTotal, kitchenName };
+}
+
+// ─── Food: read-only menu quote ───────────────────────────────────────────────
+//
+// READ-ONLY. Builds nothing, registers nothing, commits nothing — so it is not
+// in COMMITTING_TOOLS and needs no approval.
+//
+// This exists because `search_menu` used to be reachable only through
+// food_schedule_meal_program, which registers a recurrence. That left the agent
+// genuinely unable to show a customer real dish prices without committing
+// spend, so it either guessed a plate or ran a committing call as a price
+// probe. Both are bad: the first quotes numbers no vendor gave, the second
+// commits before anyone has seen a price.
+export async function food_menu_quote(input: {
+  kitchen_id: string;
+  menu_items: { query: string; quantity: number }[];
+  delivery_address: string;
+  dietary_notes?: string;
+  drops?: number;
+}): Promise<ToolResult> {
+  const token = await realMcpToken();
+  if (!token) return NOT_CONNECTED;
+  try {
+    const addressId = await resolveFoodOrInstamartAddressId("food", token, input.delivery_address);
+    const resolved = await resolveMenuSelection(
+      token,
+      addressId,
+      input.kitchen_id,
+      input.menu_items,
+      input.dietary_notes
+    );
+
+    if (resolved.menuSummary.length === 0) {
+      return {
+        ok: false,
+        error: `None of the requested dishes matched this kitchen's live menu (${input.menu_items
+          .map((i) => i.query)
+          .join(", ")}). Try different dish names.`,
+      };
+    }
+
+    const drops = input.drops && input.drops > 0 ? input.drops : null;
+    return {
+      ok: true,
+      data: {
+        kitchen: resolved.kitchenName ?? input.kitchen_id,
+        kitchen_id: input.kitchen_id,
+        menu: resolved.menuSummary,
+        unmatched_items: resolved.unmatched,
+        per_drop_inr: Math.round(resolved.perDropTotal),
+        ...(drops
+          ? { drops, total_program_inr: Math.round(resolved.perDropTotal * drops) }
+          : {}),
+        dietary_filter_applied: /\bveg\b|vegetarian|jain|no.?onion|satvik/i.test(
+          input.dietary_notes ?? ""
+        )
+          ? "veg only"
+          : "none",
+        quote_note:
+          "Live prices from this kitchen's real menu. Nothing has been ordered, carted or scheduled — this is a quote. Prices can move between now and execution.",
+        source: "real",
+      },
+    };
+  } catch (err) {
+    return callFailed(err);
+  }
+}
+
 // ─── Food: search_menu + update_food_cart (real cart, simulated checkout) ────
 export async function food_schedule_meal_program(input: {
   kitchen_id: string;
@@ -328,54 +483,14 @@ export async function food_schedule_meal_program(input: {
   if (!token) return NOT_CONNECTED;
   try {
     const addressId = await resolveFoodOrInstamartAddressId("food", token, input.delivery_address);
-
-    const cartItems: Record<string, unknown>[] = [];
-    const menuSummary: { name: string; quantity: number; price_inr: number }[] = [];
-    let perDropTotal = 0;
-    let kitchenName: string | undefined;
-
-    for (const pick of input.menu_items) {
-      // Live search_menu returns non-veg items for neutral queries (a "rice"
-      // search at a veg program returned chicken biryani), so a veg program
-      // MUST pass vegFilter:1 — serving non-veg to a shelter that asked for
-      // veg is a program-ending failure, not a cosmetic one.
-      const vegOnly = /\bveg\b|vegetarian|jain|no.?onion|satvik/i.test(input.dietary_notes ?? "");
-      const res = await callSwiggyTool(
-        "food",
-        "search_menu",
-        {
-          addressId,
-          query: pick.query,
-          restaurantIdOfAddedItem: input.kitchen_id,
-          ...(vegOnly ? { vegFilter: 1 } : {}),
-        },
-        token
+    const { cartItems, menuSummary, unmatched, perDropTotal, kitchenName } =
+      await resolveMenuSelection(
+        token,
+        addressId,
+        input.kitchen_id,
+        input.menu_items,
+        input.dietary_notes
       );
-      const items = ((res.data as { items?: Record<string, unknown>[] } | undefined)?.items ?? []) as Record<string, unknown>[];
-      // Only order what's actually in stock at this kitchen. Live search_menu
-      // items carry `inStock` (1/0) and `restaurant_id`; search can return
-      // items from other restaurants even when scoped, and a cart may only
-      // contain items from one restaurant.
-      const match = items.find(
-        (i) => i.inStock !== 0 && String(i.restaurant_id ?? input.kitchen_id) === String(input.kitchen_id)
-      );
-      if (!match) continue;
-      kitchenName ??= match.restaurant_name as string | undefined;
-      const price = typeof match.price === "number" ? (match.price as number) : 0;
-      if (!price) continue; // never build a cart line we can't cost
-      perDropTotal += price * pick.quantity;
-      // Live search_menu items have `menu_item_id` and `hasVariants:false` —
-      // NOT the `variations`/`variantsV2` the docs describe. Swiggy does not
-      // document the cartItems element shape, so send the identifying fields
-      // explicitly rather than spreading the whole search result (which
-      // carried imageUrl/addons/rating and mislabelled the item id).
-      cartItems.push({
-        menu_item_id: match.menu_item_id,
-        quantity: pick.quantity,
-        ...(match.hasVariants ? { variations: match.variations, variantsV2: match.variantsV2 } : {}),
-      });
-      menuSummary.push({ name: (match.name as string) ?? pick.query, quantity: pick.quantity, price_inr: price });
-    }
 
     if (cartItems.length === 0) {
       return { ok: false, error: `None of the requested dishes matched this kitchen's real menu — try different dish names.` };
@@ -404,6 +519,7 @@ export async function food_schedule_meal_program(input: {
         program_id: `FD-MP-${Date.now()}`,
         ngo: input.ngo_name,
         menu: menuSummary,
+        unmatched_items: unmatched,
         per_drop_inr: Math.round(perDropTotal),
         total_program_inr: Math.round(perDropTotal * totalDrops),
         total_drops: totalDrops,
@@ -821,6 +937,7 @@ export function createToolImpls(ctx: AgentContext | null) {
     instamart_schedule_recurring,
     track_instamart_order,
     food_partner_kitchens,
+    food_menu_quote,
     fetch_food_coupons,
     apply_food_coupon,
     food_schedule_meal_program,
