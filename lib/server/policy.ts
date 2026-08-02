@@ -59,22 +59,30 @@ const COMMITTING_TOOLS: Record<string, Committing> = {
         i.total_budget_inr ?? 0
       ).toLocaleString("en-IN")}, ${i.cadence}`,
   },
-  // These build a real cart against live Swiggy at real prices, so the total
-  // isn't knowable from the input. Amount-based caps can't apply; approval and
-  // donee verification still do, and those are the rules that matter most here.
+  // These build a real cart at live prices, so the final total isn't knowable
+  // from the input alone. But the agent has usually already priced it with
+  // food_menu_quote / instamart_search_bulk, so it passes that figure through
+  // as `estimated_total_inr` and the commitment bands like any other.
+  //
+  // Without this the priced figure had nowhere to go: every cooked-meal
+  // programme escalated as "amount unknown" even when the agent had just
+  // quoted it to the rupee. Read the estimate here, and keep it a real number
+  // the approver sees — an approval that says "amount set at execution" is an
+  // approval of nothing.
   instamart_schedule_recurring: {
-    amountInr: () => null,
-    ngoName: (i) => (typeof i.ngo_name === "string" ? i.ngo_name : undefined),
-    describe: (i) => `Recurring Instamart staples for ${i.ngo_name} — ${i.cadence}, ${i.weeks} weeks`,
-  },
-  food_schedule_meal_program: {
-    amountInr: () => null,
+    amountInr: estimatedTotal,
     ngoName: (i) => (typeof i.ngo_name === "string" ? i.ngo_name : undefined),
     describe: (i) =>
-      `Recurring Food meal program for ${i.ngo_name} — ${i.servings_per_drop} servings, ${i.cadence}, ${i.weeks} weeks`,
+      `Recurring Instamart staples for ${i.ngo_name} — ${i.cadence}, ${plural(i.weeks, "week")}`,
+  },
+  food_schedule_meal_program: {
+    amountInr: estimatedTotal,
+    ngoName: (i) => (typeof i.ngo_name === "string" ? i.ngo_name : undefined),
+    describe: (i) =>
+      `Recurring Food meal program for ${i.ngo_name} — ${i.servings_per_drop} servings, ${i.cadence}, ${plural(i.weeks, "week")}`,
   },
   dineout_community_table: {
-    amountInr: () => null,
+    amountInr: estimatedTotal,
     describe: (i) => `Dineout community table — party of ${i.party_size} on ${i.date}, ${i.location}`,
   },
 
@@ -84,14 +92,14 @@ const COMMITTING_TOOLS: Record<string, Committing> = {
   // the CSR side — including for `instamart_add_to_cart`, the tool that once
   // called Instamart's real `checkout` with paymentMethod "Cash".
   food_create_group_order: {
-    amountInr: () => null,
+    amountInr: estimatedTotal,
     describe: (i) =>
       `Group food order — ${(i.items as { name: string }[] | undefined)?.length ?? 0} dishes to ${
         i.delivery_address
       }, split among ${i.split_payment_among}`,
   },
   instamart_add_to_cart: {
-    amountInr: () => null,
+    amountInr: estimatedTotal,
     describe: (i) =>
       `Instamart order — ${(i.items as unknown[] | undefined)?.length ?? 0} line items to ${i.delivery_address}`,
   },
@@ -104,6 +112,17 @@ const COMMITTING_TOOLS: Record<string, Committing> = {
       `Dineout reservation — party of ${i.party_size} on ${i.date} at ${i.time}, host ${i.host_name}`,
   },
 };
+
+/** The agent's own priced figure, when it has one. Must be a positive finite
+ *  number — a zero or a NaN would band as "cheap" and skip escalation. */
+function estimatedTotal(i: Record<string, unknown>): number | null {
+  const v = i.estimated_total_inr;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+}
+
+function plural(n: unknown, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
 
 export function isCommittingTool(name: string): boolean {
   return name in COMMITTING_TOOLS;

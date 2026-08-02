@@ -8,8 +8,11 @@ export const runtime = "nodejs";
 /** Proposals awaiting a human, plus recently decided ones. */
 export async function GET() {
   const session = await getSession();
-  if (!session) return Response.json({ proposals: [] });
-  return Response.json({ proposals: await proposals.list(session.orgId) });
+  if (!session) return Response.json({ proposals: [], thresholdInr: null });
+  const [list, org] = await Promise.all([proposals.list(session.orgId), repo.get(session.orgId)]);
+  // The threshold ships with the list so the UI can state the real figure
+  // rather than repeating a hardcoded one that drifts from the org's setting.
+  return Response.json({ proposals: list, thresholdInr: org?.dualApprovalThresholdInr ?? null });
 }
 
 /** Approve or reject. Maker-checker is enforced in the repository, not here. */

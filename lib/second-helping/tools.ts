@@ -38,6 +38,11 @@ export const tools: AnthropicTool[] = [
         cadence: { type: "string", enum: ["weekly", "biweekly", "monthly"] },
         weeks: { type: "integer" },
         ngo_name: { type: "string" },
+        estimated_total_inr: {
+          type: "number",
+          description:
+            "The programme total in rupees, as you already quoted it to the user from instamart_search_bulk prices. Pass it. Without it the commitment counts as an unknown amount, which escalates to a second approver by default and asks them to sign off on a figure nobody has seen.",
+        },
       },
       required: ["items", "delivery_address", "cadence", "weeks", "ngo_name"],
     },
@@ -158,6 +163,11 @@ export const tools: AnthropicTool[] = [
         cadence: { type: "string", enum: ["daily", "weekly"] },
         weeks: { type: "integer" },
         ngo_name: { type: "string" },
+        estimated_total_inr: {
+          type: "number",
+          description:
+            "The programme total in rupees, as you already quoted it to the user from food_menu_quote. Pass it. Without it the commitment counts as an unknown amount, which escalates to a second approver by default and asks them to sign off on a figure nobody has seen.",
+        },
         dietary_notes: { type: "string" },
       },
       required: ["kitchen_id", "menu_items", "servings_per_drop", "delivery_address", "cadence", "weeks", "ngo_name"],
@@ -188,6 +198,11 @@ export const tools: AnthropicTool[] = [
         dietary: { type: "string" },
         latitude: { type: "number", description: "Venue-area latitude, if known from an earlier step" },
         longitude: { type: "number", description: "Venue-area longitude, if known from an earlier step" },
+        estimated_total_inr: {
+          type: "number",
+          description:
+            "The expected cost in rupees, if you have quoted one. Without it the commitment counts as an unknown amount and escalates to a second approver by default.",
+        },
       },
       required: ["location", "party_size", "date", "occasion"],
     },

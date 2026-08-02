@@ -29,6 +29,11 @@ export const tools: AnthropicTool[] = [
         host_name: { type: "string" },
         latitude: { type: "number", description: "Venue-area latitude, if known from an earlier step" },
         longitude: { type: "number", description: "Venue-area longitude, if known from an earlier step" },
+        estimated_total_inr: {
+          type: "number",
+          description:
+            "The total in rupees, as you already quoted it to the organizer. Without it the commitment counts as an unknown amount and escalates to a second approver by default.",
+        },
       },
       required: ["restaurant_id", "party_size", "date", "time", "host_name"],
     },
@@ -82,6 +87,11 @@ export const tools: AnthropicTool[] = [
           description:
             "e.g. 'pure veg', 'Jain', 'no onion garlic'. Pass this whenever the group is vegetarian — a neutral menu query returns non-veg dishes, so omitting it can put meat in a veg order.",
         },
+        estimated_total_inr: {
+          type: "number",
+          description:
+            "The total in rupees, as you already quoted it to the organizer. Without it the commitment counts as an unknown amount and escalates to a second approver by default.",
+        },
       },
       required: [
         "restaurant_id",
@@ -125,6 +135,11 @@ export const tools: AnthropicTool[] = [
         },
         delivery_address: { type: "string" },
         delivery_time: { type: "string" },
+        estimated_total_inr: {
+          type: "number",
+          description:
+            "The total in rupees, as you already quoted it to the organizer. Without it the commitment counts as an unknown amount and escalates to a second approver by default.",
+        },
       },
       required: ["items", "delivery_address", "delivery_time"],
     },

@@ -97,9 +97,18 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
     [trajectory, dismissedCardIds]
   );
   const paymentSimCards = useMemo(() => extractPaymentSimulations(trajectory), [trajectory]);
-  const approvalRequests = useMemo(() => extractApprovalRequests(trajectory), [trajectory]);
   // Bumped when an approval is recorded, so the side panels re-read too.
   const [approvalsVersion, setApprovalsVersion] = useState(0);
+  // Proposals that have been decided and then scrolled past. A pending
+  // approval must stay visible until someone acts on it, but once it's been
+  // signed off it's history — leaving it live means every decision from the
+  // session piles up above the composer.
+  const [decidedProposalIds, setDecidedProposalIds] = useState<Set<string>>(new Set());
+  const [retiredProposalIds, setRetiredProposalIds] = useState<Set<string>>(new Set());
+  const approvalRequests = useMemo(
+    () => extractApprovalRequests(trajectory).filter((r) => !retiredProposalIds.has(r.proposalId)),
+    [trajectory, retiredProposalIds]
+  );
 
   useEffect(() => {
     messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
@@ -115,12 +124,16 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
   // Re-offering a choice the user already made in words reads as the agent
   // not having listened.
   function retireOpenCards() {
-    if (planCards.length === 0) return;
-    setDismissedCardIds((prev) => {
-      const next = new Set(prev);
-      for (const c of planCards) next.add(c.toolId);
-      return next;
-    });
+    if (planCards.length > 0) {
+      setDismissedCardIds((prev) => {
+        const next = new Set(prev);
+        for (const c of planCards) next.add(c.toolId);
+        return next;
+      });
+    }
+    if (decidedProposalIds.size > 0) {
+      setRetiredProposalIds((prev) => new Set([...prev, ...decidedProposalIds]));
+    }
   }
 
   function handleSend(text: string) {
@@ -284,7 +297,10 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
                 <ApprovalCard
                   key={req.proposalId}
                   proposalId={req.proposalId}
-                  onDecided={() => setApprovalsVersion((v) => v + 1)}
+                  onDecided={(id) => {
+                    setApprovalsVersion((v) => v + 1);
+                    setDecidedProposalIds((prev) => new Set(prev).add(id));
+                  }}
                 />
               ))}
             </div>

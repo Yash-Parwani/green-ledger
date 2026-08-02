@@ -30,9 +30,10 @@ export function ApprovalCard({
   onDecided,
 }: {
   proposalId: string;
-  onDecided?: () => void;
+  onDecided?: (proposalId: string) => void;
 }) {
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [thresholdInr, setThresholdInr] = useState<number | null>(null);
   const [secondEmail, setSecondEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +41,12 @@ export function ApprovalCard({
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/second-helping/approvals");
-      const { proposals } = (await res.json()) as { proposals: Proposal[] };
+      const { proposals, thresholdInr: t } = (await res.json()) as {
+        proposals: Proposal[];
+        thresholdInr: number | null;
+      };
       setProposal(proposals?.find((p) => p.id === proposalId) ?? null);
+      setThresholdInr(t);
     } catch {
       // non-critical: the approvals panel is still a working fallback
     }
@@ -70,7 +75,7 @@ export function ApprovalCard({
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Could not record that decision.");
       await load();
-      onDecided?.();
+      onDecided?.(proposalId);
     } finally {
       setBusy(false);
     }
@@ -80,7 +85,15 @@ export function ApprovalCard({
 
   const settled = proposal.status !== "awaiting_approval";
   const amount =
-    proposal.amountInr != null ? `₹${proposal.amountInr.toLocaleString("en-IN")}` : "amount set at execution";
+    proposal.amountInr != null
+      ? `₹${proposal.amountInr.toLocaleString("en-IN")}`
+      : "total not priced yet";
+
+  // Two different reasons land in the same `requiresSecondApprover` flag, and
+  // saying the wrong one is worse than saying nothing: a ₹35,880 order labelled
+  // "above your ₹5,00,000 threshold" is a claim the CFO can see is false.
+  const escalatedForUnknownAmount = proposal.requiresSecondApprover && proposal.amountInr == null;
+  const threshold = thresholdInr != null ? `₹${thresholdInr.toLocaleString("en-IN")}` : "the";
 
   return (
     <div
@@ -110,8 +123,19 @@ export function ApprovalCard({
           {proposal.requiresSecondApprover ? (
             <>
               <p className="mt-2.5 text-xs leading-snug text-ink-600">
-                Above your ₹5,00,000 second-approver threshold, so {proposal.proposedByEmail} can&rsquo;t
-                sign this one off. Enter the second approver&rsquo;s email.
+                {escalatedForUnknownAmount ? (
+                  <>
+                    The total hasn&rsquo;t been priced yet, so this escalates by default —{" "}
+                    {proposal.proposedByEmail} can&rsquo;t sign off on a figure nobody has seen. Ask the
+                    agent to quote it first and it may come back under your {threshold} threshold, or
+                    enter a second approver&rsquo;s email to proceed anyway.
+                  </>
+                ) : (
+                  <>
+                    Above your {threshold} second-approver threshold, so {proposal.proposedByEmail}{" "}
+                    can&rsquo;t sign this one off. Enter the second approver&rsquo;s email.
+                  </>
+                )}
               </p>
               <input
                 value={secondEmail}
@@ -123,7 +147,7 @@ export function ApprovalCard({
             </>
           ) : (
             <p className="mt-2.5 text-xs leading-snug text-ink-600">
-              Below your ₹5,00,000 second-approver threshold, so you can sign this off yourself. The
+              Below your {threshold} second-approver threshold, so you can sign this off yourself. The
               approval is bound to these exact figures.
             </p>
           )}
