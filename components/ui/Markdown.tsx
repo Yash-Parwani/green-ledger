@@ -6,13 +6,20 @@ export function Markdown({ children, tone = "light" }: { children: string; tone?
   const isDark = tone === "dark";
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      // singleTilde MUST stay false. GFM treats `~text~` as strikethrough, and
+      // the agent writes `~` for "approximately" constantly ("~₹20,750/day",
+      // "~120 g"). Two of those in one paragraph silently struck through
+      // everything between them — including prices — which on a page about
+      // auditable numbers reads as a correction the agent never made.
+      // Genuine strikethrough still works with `~~double~~`.
+      remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
       components={{
         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
         strong: ({ children }) => (
           <strong className={cn("font-semibold", isDark ? "text-white" : "text-ink-900")}>{children}</strong>
         ),
         em: ({ children }) => <em className="italic">{children}</em>,
+        del: ({ children }) => <del className="line-through opacity-70">{children}</del>,
         ul: ({ children }) => <ul className="mb-2 list-disc space-y-0.5 pl-4 last:mb-0">{children}</ul>,
         ol: ({ children }) => <ol className="mb-2 list-decimal space-y-0.5 pl-4 last:mb-0">{children}</ol>,
         li: ({ children }) => <li className="pl-0.5">{children}</li>,

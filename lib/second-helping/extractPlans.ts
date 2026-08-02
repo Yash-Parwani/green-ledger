@@ -120,6 +120,12 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
     const output = entry.output as { ok?: boolean; data?: Record<string, unknown> };
     if (!output?.ok || !output.data) continue;
 
+    // Labels double as the dedupe key and the selection key, so they have to
+    // identify the *search*, not just the surface. Two Instamart searches
+    // (rice, then dal) both labelled "Bulk staples · Instamart" meant the
+    // second silently replaced the first, and the user only ever saw the dal.
+    const input = (use.input ?? {}) as Record<string, unknown>;
+
     if (use.name === "food_partner_kitchens") {
       const kitchens = (output.data.kitchens ?? []) as {
         id?: string;
@@ -129,9 +135,10 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
         per_meal_inr?: number;
         capacity_per_day?: number;
       }[];
+      const mealType = typeof input.meal_type === "string" ? input.meal_type.replace(/_/g, " ") : null;
       cards.push({
         toolId: entry.id,
-        label: "Kitchens · Food",
+        label: mealType ? `${titleCase(mealType)} kitchens · Food` : "Kitchens · Food",
         accent: "green",
         options: kitchens.map((k, i) => ({
           id: k.id ?? String(i),
@@ -158,9 +165,10 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
         bulk_discount_pct?: number;
         eta_hr?: number;
       }[];
+      const category = typeof input.category === "string" ? input.category : null;
       cards.push({
         toolId: entry.id,
-        label: "Bulk staples · Instamart",
+        label: category ? `${titleCase(category)} · Instamart` : "Bulk staples · Instamart",
         accent: "green",
         options: offers.map((o, i) => ({
           id: `${o.vendor ?? "vendor"}-${i}`,
@@ -195,8 +203,13 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
     }
   }
 
-  // Keep only the most recent card per category so re-searches replace, not stack.
+  // Re-running the *same* search replaces its card; searching a different
+  // staple or meal type adds one. That distinction lives in the label.
   const latestByLabel = new Map<string, Extracted>();
   for (const c of cards) latestByLabel.set(c.label, c);
   return Array.from(latestByLabel.values());
+}
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }

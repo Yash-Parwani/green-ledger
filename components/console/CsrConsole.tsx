@@ -14,6 +14,7 @@ import { PlanCard } from "@/components/ui/PlanCard";
 import { PaymentSimulatedCard } from "@/components/ui/PaymentSimulatedCard";
 import { ApprovalCard } from "@/components/ui/ApprovalCard";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/shared/cn";
 import { ApprovalsPanel } from "@/components/console/ApprovalsPanel";
 import { DoneesPanel } from "@/components/console/DoneesPanel";
 
@@ -216,18 +217,29 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
 
           {planCards.length > 0 && (
             <div className="flex flex-col gap-3 pt-1">
-              {planCards.map((card) => (
-                <PlanCard
-                  key={card.label}
-                  label={card.label}
-                  accent={card.accent}
-                  options={card.options}
-                  selectedId={selections[card.label] ?? card.options[0]?.id}
-                  onSelect={(id) => setSelections((s) => ({ ...s, [card.label]: id }))}
-                />
-              ))}
+              {/* Side by side once there's more than one. These are usually
+                  alternatives being compared — staples vs cooked meals, rice
+                  vs dal — and a vertical stack makes the reader scroll to
+                  hold two options in their head at once. */}
+              <div
+                className={cn(
+                  "grid gap-3",
+                  planCards.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"
+                )}
+              >
+                {planCards.map((card) => (
+                  <PlanCard
+                    key={card.label}
+                    label={card.label}
+                    accent={card.accent}
+                    options={card.options}
+                    selectedId={selections[card.label] ?? card.options[0]?.id}
+                    onSelect={(id) => setSelections((s) => ({ ...s, [card.label]: id }))}
+                  />
+                ))}
+              </div>
               <Button onClick={confirmSelection} disabled={loading} variant="success" className="self-start">
-                Use this
+                {planCards.length > 1 ? "Use these" : "Use this"}
               </Button>
             </div>
           )}
