@@ -142,7 +142,8 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
         accent: "green",
         options: kitchens.map((k, i) => ({
           id: k.id ?? String(i),
-          title: k.name ?? "Kitchen",
+          title: stripAdSuffix(k.name) ?? "Kitchen",
+          promoted: isPromoted(k.name),
           subtitle:
             k.certified_fssai === true
               ? "FSSAI certified"
@@ -212,4 +213,17 @@ export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Swiggy marks paid placements by appending "(Ad)" to the restaurant name, so
+// the only signal arrives inside the display string. Pull it out into a real
+// field rather than leaving it as punctuation the reader has to notice.
+const AD_SUFFIX = /\s*\((?:ad|ads|sponsored)\)\s*$/i;
+
+function isPromoted(name?: string): boolean {
+  return !!name && AD_SUFFIX.test(name);
+}
+
+function stripAdSuffix(name?: string): string | undefined {
+  return name?.replace(AD_SUFFIX, "").trim();
 }

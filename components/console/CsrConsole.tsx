@@ -105,8 +105,27 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
     messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
   }, [messages, loading, planCards]);
 
+  // A plan card is a question about *right now*. Once the user has replied —
+  // by picking an option or by typing straight past it — the question has been
+  // answered, so the card retires.
+  //
+  // Previously cards were only dismissed by the "Use this" button, so anyone
+  // who answered in prose left a live chooser sitting under a conversation
+  // that had moved on, and the next search stacked another one underneath.
+  // Re-offering a choice the user already made in words reads as the agent
+  // not having listened.
+  function retireOpenCards() {
+    if (planCards.length === 0) return;
+    setDismissedCardIds((prev) => {
+      const next = new Set(prev);
+      for (const c of planCards) next.add(c.toolId);
+      return next;
+    });
+  }
+
   function handleSend(text: string) {
     setInput("");
+    retireOpenCards();
     // No profile in the payload — the server reads the org off the session.
     send(text);
   }
@@ -119,11 +138,7 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
         return chosen ? `${card.label.split(" · ")[0]}: ${chosen.title}` : null;
       })
       .filter(Boolean);
-    setDismissedCardIds((prev) => {
-      const next = new Set(prev);
-      for (const c of planCards) next.add(c.toolId);
-      return next;
-    });
+    // handleSend retires the open cards.
     handleSend(`Go with: ${parts.join("; ")}. Pull bulk coupons and quote the landed cost.`);
   }
 

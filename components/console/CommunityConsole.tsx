@@ -46,8 +46,22 @@ export function CommunityConsole({ chat }: { chat: ReturnType<typeof useAgentCha
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant")?.content ?? "";
   const clarifyChips = CLARIFY_CHIPS.find((c) => lastAssistant.toLowerCase().includes(c.keyword))?.options;
 
+  // A plan card is a question about *right now*. Once the user has replied —
+  // by picking an option or by typing straight past it — it retires. Leaving
+  // it up means a live chooser sits under a conversation that has moved on,
+  // and the next search stacks another one underneath it.
+  function retireOpenCards() {
+    if (planCards.length === 0) return;
+    setDismissedCardIds((prev) => {
+      const next = new Set(prev);
+      for (const c of planCards) next.add(c.toolId);
+      return next;
+    });
+  }
+
   function handleSend(text: string) {
     setInput("");
+    retireOpenCards();
     send(text);
   }
 
@@ -59,11 +73,7 @@ export function CommunityConsole({ chat }: { chat: ReturnType<typeof useAgentCha
         return chosen ? `${card.label.split(" · ")[0]}: ${chosen.title}` : null;
       })
       .filter(Boolean);
-    setDismissedCardIds((prev) => {
-      const next = new Set(prev);
-      for (const c of planCards) next.add(c.toolId);
-      return next;
-    });
+    // handleSend retires the open cards.
     handleSend(`Go ahead and book this: ${parts.join("; ")}.`);
   }
 

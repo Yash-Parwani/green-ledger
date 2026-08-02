@@ -10,6 +10,8 @@ export type PlanOption = {
   subtitle?: string;
   meta?: string[];
   price?: string;
+  /** Swiggy returned this as a paid placement rather than an organic result. */
+  promoted?: boolean;
 };
 
 export function PlanCard({
@@ -73,7 +75,19 @@ export function PlanCard({
               )}
             >
               <span>
-                <span className="block font-medium text-ink-800">{opt.title}</span>
+                <span className="block font-medium text-ink-800">
+                  {opt.title}
+                  {/* Paid placements arrive from Swiggy's search mixed in with
+                      organic results and marked only by "(Ad)" inside the name.
+                      This is charitable money choosing a vendor, so the fact
+                      that a result was paid for belongs on the option itself,
+                      not buried in a string. */}
+                  {opt.promoted && (
+                    <span className="ml-1.5 rounded border border-ink-300 px-1 py-px align-middle text-[9px] font-semibold uppercase tracking-wide text-ink-500">
+                      Promoted
+                    </span>
+                  )}
+                </span>
                 {opt.subtitle && <span className="mt-0.5 block text-xs text-ink-500">{opt.subtitle}</span>}
                 {opt.meta && opt.meta.length > 0 && (
                   <span className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-ink-500">
