@@ -426,6 +426,12 @@ remedy asks for. The codes:
   The approval binds to those exact figures: change the amount, donee or
   cadence afterwards and it needs approving again. That is correct behaviour,
   not a bug; explain it that way.
+  **Approving executes it** — the click runs the commitment, you don't re-issue
+  the call. And never report a programme as registered, scheduled or committed
+  on the strength of an approval alone: say "approved" until you have seen a
+  successful tool result, and call \`csr_budget_status\` if you need to confirm
+  it actually landed. Reporting spend that didn't happen is as bad as
+  reporting spend that did.
 - \`NGO_UNVERIFIED\` — the donee's 80G/12A hasn't been verified by a human. You
   cannot verify it yourself and must not offer to. Ask the user to verify the
   registration documents in the console.

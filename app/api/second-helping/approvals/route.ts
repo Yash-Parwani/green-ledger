@@ -1,7 +1,9 @@
 import { proposals } from "@/lib/server/proposals";
 import { ledger } from "@/lib/server/ledger";
 import { repo } from "@/lib/server/orgStore";
-import { getSession } from "@/lib/server/session";
+import { getSession, toAgentContext } from "@/lib/server/session";
+import { createToolImpls as createCsrToolImpls } from "@/lib/second-helping/tool-impls";
+import { createToolImpls as createGcToolImpls } from "@/lib/group-concierge/tool-impls";
 
 export const runtime = "nodejs";
 
@@ -76,5 +78,40 @@ export async function POST(req: Request) {
     ngoName: result.ngoName,
   });
 
-  return Response.json({ proposal: result });
+  if (action === "reject") return Response.json({ proposal: result });
+
+  // Approving RUNS it. Previously approval only unlocked the call and something
+  // else had to make it again — so a proposal could sit approved-but-never-
+  // executed with no commitment on the ledger and no spend against budget,
+  // while the agent, having seen the approval, reported the programme as
+  // registered. "I approved it" has to mean "it happened".
+  //
+  // This goes back through the same policy-wrapped implementations, so the gate
+  // re-runs, finds the now-approved proposal matching this exact call hash,
+  // allows it, and writes the commitment to the ledger. The gate stays the
+  // single enforcement point; nothing here bypasses it.
+  const ctx = toAgentContext(session);
+  const impls = { ...createCsrToolImpls(ctx), ...createGcToolImpls(ctx) } as Record<
+    string,
+    (input: never) => Promise<unknown>
+  >;
+  const impl = impls[result.toolName];
+  if (!impl) {
+    return Response.json({
+      proposal: result,
+      execution: { ok: false, error: `Approved, but no implementation for ${result.toolName}.` },
+    });
+  }
+
+  try {
+    const execution = await impl(result.toolInput as never);
+    return Response.json({ proposal: await proposals.get(session.orgId, id), execution });
+  } catch (err) {
+    // The approval stands — the execution failed. Say so rather than letting
+    // the caller assume a green tick means it landed.
+    return Response.json({
+      proposal: result,
+      execution: { ok: false, error: `Approved, but execution failed: ${(err as Error).message}` },
+    });
+  }
 }
