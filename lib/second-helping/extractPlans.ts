@@ -1,0 +1,169 @@
+import type { TrajEntry } from "@/components/ui/ToolTrajectory";
+import type { PlanOption } from "@/components/ui/PlanCard";
+import type { PaymentSimulatedLine } from "@/components/ui/PaymentSimulatedCard";
+
+type Extracted = { toolId: string; label: string; accent: "orange" | "green"; options: PlanOption[] };
+
+export type ExtractedPaymentSimulation = {
+  toolId: string;
+  label: string;
+  accent: "orange" | "green";
+  ngo?: string;
+  lines: PaymentSimulatedLine[];
+  perDrop?: string;
+  total?: string;
+  note: string;
+};
+
+export function extractPaymentSimulations(trajectory: TrajEntry[]): ExtractedPaymentSimulation[] {
+  const cards: ExtractedPaymentSimulation[] = [];
+
+  for (const entry of trajectory) {
+    if (entry.kind !== "tool_result") continue;
+    const use = trajectory.find(
+      (t): t is Extract<TrajEntry, { kind: "tool_use" }> => t.kind === "tool_use" && t.id === entry.id
+    );
+    if (!use) continue;
+    const output = entry.output as { ok?: boolean; data?: Record<string, unknown> };
+    if (!output?.ok || !output.data?.payment_simulated) continue;
+
+    if (use.name === "instamart_schedule_recurring") {
+      const items = (output.data.items ?? []) as {
+        category?: string;
+        vendor?: string;
+        price_per_kg_inr?: number;
+        quantity_kg?: number;
+      }[];
+      cards.push({
+        toolId: entry.id,
+        label: "Recurring bulk drop · Instamart",
+        accent: "green",
+        ngo: output.data.ngo as string | undefined,
+        lines: items.map((i) => ({
+          label: `${i.category ?? "Item"}${i.vendor ? ` · ${i.vendor}` : ""}`,
+          meta: i.quantity_kg ? `${i.quantity_kg}kg` : undefined,
+          amount: i.price_per_kg_inr != null ? `₹${i.price_per_kg_inr}/kg` : undefined,
+        })),
+        perDrop: output.data.total_per_drop_inr != null ? `₹${(output.data.total_per_drop_inr as number).toLocaleString("en-IN")}` : undefined,
+        total: output.data.total_program_inr != null ? `₹${(output.data.total_program_inr as number).toLocaleString("en-IN")}` : undefined,
+        note: (output.data.payment_note as string) ?? "Checkout is simulated in this demo build.",
+      });
+    }
+
+    if (use.name === "food_schedule_meal_program") {
+      const menu = (output.data.menu ?? []) as { name?: string; quantity?: number; price_inr?: number }[];
+      cards.push({
+        toolId: entry.id,
+        label: "Recurring meal program · Food",
+        accent: "green",
+        ngo: output.data.ngo as string | undefined,
+        lines: menu.map((m) => ({
+          label: m.name ?? "Dish",
+          meta: m.quantity ? `×${m.quantity}` : undefined,
+          amount: m.price_inr != null ? `₹${m.price_inr}` : undefined,
+        })),
+        perDrop: output.data.per_drop_inr != null ? `₹${(output.data.per_drop_inr as number).toLocaleString("en-IN")}` : undefined,
+        total: output.data.total_program_inr != null ? `₹${(output.data.total_program_inr as number).toLocaleString("en-IN")}` : undefined,
+        note: (output.data.payment_note as string) ?? "Checkout is simulated in this demo build.",
+      });
+    }
+  }
+
+  // Keep only the latest simulation per tool label so re-runs replace, not stack.
+  const latestByLabel = new Map<string, ExtractedPaymentSimulation>();
+  for (const c of cards) latestByLabel.set(c.label, c);
+  return Array.from(latestByLabel.values());
+}
+
+export function extractPlanCards(trajectory: TrajEntry[]): Extracted[] {
+  const cards: Extracted[] = [];
+
+  for (const entry of trajectory) {
+    if (entry.kind !== "tool_result") continue;
+    const use = trajectory.find(
+      (t): t is Extract<TrajEntry, { kind: "tool_use" }> => t.kind === "tool_use" && t.id === entry.id
+    );
+    if (!use) continue;
+    const output = entry.output as { ok?: boolean; data?: Record<string, unknown> };
+    if (!output?.ok || !output.data) continue;
+
+    if (use.name === "food_partner_kitchens") {
+      const kitchens = (output.data.kitchens ?? []) as {
+        id?: string;
+        name?: string;
+        certified_fssai?: boolean | null;
+        dietary_compliance?: string[];
+        per_meal_inr?: number;
+        capacity_per_day?: number;
+      }[];
+      cards.push({
+        toolId: entry.id,
+        label: "Kitchens · Food",
+        accent: "green",
+        options: kitchens.map((k, i) => ({
+          id: k.id ?? String(i),
+          title: k.name ?? "Kitchen",
+          subtitle:
+            k.certified_fssai === true
+              ? "FSSAI certified"
+              : k.certified_fssai === false
+                ? "Not FSSAI certified"
+                : "FSSAI status unverified",
+          meta: [
+            ...(k.dietary_compliance ?? []),
+            ...(k.capacity_per_day ? [`Capacity ${k.capacity_per_day.toLocaleString("en-IN")}/day`] : []),
+          ],
+          price: k.per_meal_inr != null ? `₹${k.per_meal_inr}/meal` : undefined,
+        })),
+      });
+    }
+
+    if (use.name === "instamart_search_bulk") {
+      const offers = (output.data.best_offers ?? []) as {
+        vendor?: string;
+        price_per_kg_inr?: number | null;
+        bulk_discount_pct?: number;
+        eta_hr?: number;
+      }[];
+      cards.push({
+        toolId: entry.id,
+        label: "Bulk staples · Instamart",
+        accent: "green",
+        options: offers.map((o, i) => ({
+          id: `${o.vendor ?? "vendor"}-${i}`,
+          title: o.vendor ?? "Vendor",
+          subtitle: o.bulk_discount_pct ? `${o.bulk_discount_pct}% bulk discount` : undefined,
+          meta: o.eta_hr ? [`ETA ${o.eta_hr}h`] : [],
+          price: o.price_per_kg_inr != null ? `₹${o.price_per_kg_inr}/kg` : undefined,
+        })),
+      });
+    }
+
+    if (use.name === "dineout_community_table") {
+      const reservations = (output.data.reservations ?? []) as {
+        restaurant?: string;
+        restaurant_id?: string;
+        capacity?: number;
+        csr_partner_discount_pct?: number;
+        cost_for_two_inr?: number;
+      }[];
+      cards.push({
+        toolId: entry.id,
+        label: "Community tables · Dineout",
+        accent: "orange",
+        options: reservations.map((r, i) => ({
+          id: r.restaurant_id ?? `${r.restaurant ?? "restaurant"}-${i}`,
+          title: r.restaurant ?? "Restaurant",
+          subtitle: r.csr_partner_discount_pct ? `${r.csr_partner_discount_pct}% CSR partner discount` : undefined,
+          meta: r.capacity ? [`Seats ${r.capacity}`] : [],
+          price: r.cost_for_two_inr != null ? `₹${Math.round(r.cost_for_two_inr / 2)}/head` : undefined,
+        })),
+      });
+    }
+  }
+
+  // Keep only the most recent card per category so re-searches replace, not stack.
+  const latestByLabel = new Map<string, Extracted>();
+  for (const c of cards) latestByLabel.set(c.label, c);
+  return Array.from(latestByLabel.values());
+}
