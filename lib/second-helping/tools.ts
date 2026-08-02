@@ -114,32 +114,6 @@ export const tools: AnthropicTool[] = [
     },
   },
   {
-    name: "fetch_food_coupons",
-    description:
-      "Check Swiggy Food coupons for a kitchen. Swiggy documents this at the CART stage, and calling it before a cart exists has been observed returning HTTP 400 — so don't call it while you're still quoting. Call it at most ONCE per kitchen, and if it errors, report savings as UNKNOWN rather than zero and carry on. A failed coupon lookup is not a reason to block a programme, and retrying it in the same turn just produces a second identical error.",
-    input_schema: {
-      type: "object",
-      properties: {
-        kitchen_id: { type: "string" },
-        order_value_inr: { type: "number" },
-      },
-      required: ["kitchen_id", "order_value_inr"],
-    },
-  },
-  {
-    name: "apply_food_coupon",
-    description: "Apply a coupon to the Swiggy Food order. Call after fetch_food_coupons returns an applicable code. Maps to Food apply_food_coupon MCP.",
-    input_schema: {
-      type: "object",
-      properties: {
-        kitchen_id: { type: "string" },
-        coupon_code: { type: "string" },
-        order_value_inr: { type: "number" },
-      },
-      required: ["kitchen_id", "coupon_code", "order_value_inr"],
-    },
-  },
-  {
     name: "food_schedule_meal_program",
     description:
       "Build a real menu cart (fresh search_menu + update_food_cart against live Swiggy Food MCP, using the dishes you decided on) for a recurring cooked-meal program, then register the recurrence. Only call after the user has approved a concrete menu + plan — checkout/payment capture is simulated in this build, never call this expecting it to charge money.",
@@ -352,7 +326,7 @@ export const systemPrompt = `You are **Second Helping**, an autonomous CSR procu
 
 You have access to:
 - **Swiggy Instamart MCP** (search_products, update_cart, checkout, track_order) — bulk staples at wholesale
-- **Swiggy Food MCP** (search_restaurants, fetch_food_coupons, apply_food_coupon, place_food_order, track_food_order) — partner kitchens
+- **Swiggy Food MCP** (search_restaurants, search_menu, update_food_cart, place_food_order, track_food_order) — partner kitchens. Coupons are checked automatically at checkout, inside the cart-building tool — you have no separate coupon tool and don't need one.
 - **Swiggy Dineout MCP** (search + slots + book_table + get_booking_status) — community tables
 - **Our product layer**: setup_csr_profile, csr_budget_status, schedule_program, generate_80g_receipt, generate_gst_invoice, impact_dashboard_update
 
@@ -405,7 +379,7 @@ Don't silently pick one. If you don't already know whether the NGO cooks on-site
 
 ## Ask before you commit real spend
 
-Never call schedule_program, apply_food_coupon → order, or checkout without first showing the user a concrete plan (items/menu, quantities, vendor or kitchen, total ₹) and getting explicit approval. Stop and ask — don't guess — when any of these hold:
+Never call schedule_program, an order-placing tool, or checkout without first showing the user a concrete plan (items/menu, quantities, vendor or kitchen, total ₹) and getting explicit approval. Stop and ask — don't guess — when any of these hold:
 - the dietary/menu mix is unspecified beyond a vague count (e.g. "lunch for 100" with no sense of what beyond dal-chawal-pulav — a rough breakdown is enough, you don't need exact grams)
 - headcount looks too large for a single kitchen/vendor's typical capacity
 - the order would push CSR budget utilization past ~90%
@@ -420,7 +394,7 @@ A good clarifying question beats a wrong five-figure order. One question at a ti
 2. **Decide sourcing** using the cooked-vs-raw framework above — ask if it's genuinely ambiguous, otherwise proceed. Dineout for festival/community-table occasions.
 3. **Get the delivery address, then find vendors**: address first, then \`food_partner_kitchens\` / \`instamart_search_bulk\`. Both are read-only.
 4. **Price it for real**: \`food_menu_quote\` (or the Instamart search results) to get actual dishes and actual prices. Still read-only — nothing commits here.
-5. **Coupon stack** (optional, never blocking): Swiggy documents coupons at the cart stage, so a lookup before a cart exists may 400. Try it once with the quoted order value; if it works, apply the code and report the saving. If it errors, say savings are **unknown — not zero** and move on. Never retry it in the same turn, and never hold up a programme over it.
+5. **Coupons happen automatically** — you don't call anything. Swiggy scopes coupons to an existing cart, so the check runs inside the cart-building tool, right after the cart is assembled and immediately before the (simulated) checkout. The result comes back on the tool response as a \`coupon\` object. Report what it says: a code and a saving if one applied, "none applicable" if there were none, and **"unknown — not zero"** if the lookup failed. Never present a failed coupon check as ₹0 saved.
 6. **Show the user the real plate and the real total, and get their confirmation** — dish names, per-portion prices, per-drop cost, programme total, drop count. This happens *before* the approval proposal, and it is not optional even when the user said "you pick".
 7. **Build the cart / register recurring**: only now call the committing tools — food_schedule_meal_program / instamart_schedule_recurring, then schedule_program to persist the programme and count its budget against CSR spend. Expect APPROVAL_REQUIRED; that's the gate, not a failure.
 8. **Execute + confirm**: Once approved, call track_instamart_order / track_food_order / get_dineout_booking_status to confirm delivery is in motion.

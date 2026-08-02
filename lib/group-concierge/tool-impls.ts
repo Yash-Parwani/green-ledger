@@ -15,6 +15,7 @@ import {
   resolveDineoutLocationId,
   parseDineoutRestaurantText,
 } from "@/lib/shared/swiggy-mcp-client";
+import { applyBestCouponAtCheckout } from "@/lib/shared/food-coupons";
 import { withPolicy } from "@/lib/server/withPolicy";
 import { buildGstInvoice, type GstInvoiceInput } from "@/lib/server/gstInvoice";
 import type { AgentContext } from "@/lib/server/session";
@@ -282,12 +283,28 @@ export async function food_create_group_order(input: {
       token
     );
 
+    // Cart assembled, about to (simulate) paying — the only point where a
+    // coupon lookup is valid, and the point an organizer would expect it.
+    const coupon = await applyBestCouponAtCheckout({
+      token,
+      restaurantId: input.restaurant_id,
+      addressId,
+    });
+    const netTotal = coupon.savings_inr !== null ? Math.max(total - coupon.savings_inr, 0) : null;
+
     return {
       ok: true,
       data: {
         cart_id: `FD-GRP-${Date.now()}`,
         restaurant: restaurantName ?? input.restaurant_id,
         menu: menuSummary,
+        coupon,
+        ...(netTotal !== null
+          ? {
+              total_after_coupon_inr: Math.round(netTotal),
+              per_person_after_coupon_inr: Math.round(netTotal / input.split_payment_among),
+            }
+          : {}),
         // Surfaced, not swallowed: a silently shorter order is how a group
         // event ends up under-catered.
         unmatched_items: unmatched,

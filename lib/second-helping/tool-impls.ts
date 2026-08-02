@@ -44,6 +44,7 @@ import { ngos } from "@/lib/server/ngoStore";
 import { artifacts } from "@/lib/server/artifacts";
 import { renderDocument, formatInr } from "@/lib/server/pdf";
 import { buildGstInvoice, type GstInvoiceInput } from "@/lib/server/gstInvoice";
+import { applyBestCouponAtCheckout } from "@/lib/shared/food-coupons";
 import { withPolicy } from "@/lib/server/withPolicy";
 import type { AgentContext } from "@/lib/server/session";
 
@@ -280,49 +281,6 @@ export async function food_partner_kitchens(input: {
   }
 }
 
-// ─── Food: fetch_food_coupons ─────────────────────────────────────────────────
-export async function fetch_food_coupons(input: {
-  kitchen_id: string;
-  order_value_inr: number;
-}): Promise<ToolResult> {
-  const token = await realMcpToken();
-  if (!token) return NOT_CONNECTED;
-  try {
-    const addressId = await resolveFoodOrInstamartAddressId("food", token);
-    const res = await callSwiggyTool(
-      "food",
-      "fetch_food_coupons",
-      { restaurantId: input.kitchen_id, addressId },
-      token
-    );
-    return { ok: true, data: { ...(res.data as object), order_value_inr: input.order_value_inr, source: "real" } };
-  } catch (err) {
-    return callFailed(err);
-  }
-}
-
-// ─── Food: apply_food_coupon ──────────────────────────────────────────────────
-export async function apply_food_coupon(input: {
-  kitchen_id: string;
-  coupon_code: string;
-  order_value_inr: number;
-}): Promise<ToolResult> {
-  const token = await realMcpToken();
-  if (!token) return NOT_CONNECTED;
-  try {
-    const addressId = await resolveFoodOrInstamartAddressId("food", token);
-    const res = await callSwiggyTool(
-      "food",
-      "apply_food_coupon",
-      { couponCode: input.coupon_code, addressId },
-      token
-    );
-    return { ok: true, data: { ...(res.data as object), coupon_applied: input.coupon_code, source: "real" } };
-  } catch (err) {
-    return callFailed(err);
-  }
-}
-
 // ─── Food: menu resolution ────────────────────────────────────────────────────
 //
 // Shared by the read-only quote and the cart builder, deliberately. If the
@@ -516,9 +474,21 @@ export async function food_schedule_meal_program(input: {
       token
     );
 
+    // Cart is built; this is the checkout moment, so it's the only point where
+    // a coupon lookup is both valid (Swiggy scopes it to the cart stage) and
+    // useful. Runs once, never throws, and never reports zero when it means
+    // unknown. See lib/shared/food-coupons.ts.
+    const coupon = await applyBestCouponAtCheckout({
+      token,
+      restaurantId: input.kitchen_id,
+      addressId,
+    });
+
     const dropsPerWeek = input.cadence === "daily" ? 7 : 1;
     const totalDrops = input.weeks * dropsPerWeek;
     const totalMeals = input.servings_per_drop * totalDrops;
+    const perDropNet =
+      coupon.savings_inr !== null ? Math.max(perDropTotal - coupon.savings_inr, 0) : null;
     return {
       ok: true,
       data: {
@@ -526,7 +496,14 @@ export async function food_schedule_meal_program(input: {
         ngo: input.ngo_name,
         menu: menuSummary,
         unmatched_items: unmatched,
+        coupon,
         per_drop_inr: Math.round(perDropTotal),
+        ...(perDropNet !== null
+          ? {
+              per_drop_after_coupon_inr: Math.round(perDropNet),
+              total_program_after_coupon_inr: Math.round(perDropNet * totalDrops),
+            }
+          : {}),
         total_program_inr: Math.round(perDropTotal * totalDrops),
         total_drops: totalDrops,
         total_meals: totalMeals,
@@ -944,8 +921,6 @@ export function createToolImpls(ctx: AgentContext | null) {
     track_instamart_order,
     food_partner_kitchens,
     food_menu_quote,
-    fetch_food_coupons,
-    apply_food_coupon,
     food_schedule_meal_program,
     track_food_order,
     dineout_community_table,
