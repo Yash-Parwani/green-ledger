@@ -80,6 +80,20 @@ const NOT_CONNECTED: ToolResult = {
   error: "Swiggy isn't connected — connect your Swiggy account (console header) to search real results.",
 };
 
+// Ids GreenLedger mints for its own records. They are references, not Swiggy
+// order ids — no order exists behind them, because checkout is simulated.
+const GREENLEDGER_REF = /^(FD-MP|IM-RC|PROG|FD-GRP|80G|GST)-\d+$/;
+
+function isGreenLedgerReference(id: string): boolean {
+  return GREENLEDGER_REF.test(id.trim());
+}
+
+const NO_REAL_ORDER_TO_TRACK: ToolResult = {
+  ok: false,
+  error:
+    "There is no Swiggy order to track. That id is GreenLedger's own programme reference, and checkout is simulated in this build — the cart is real but no order was placed, so Swiggy has nothing to report on it. Say that plainly rather than describing it as a status that hasn't arrived yet: it will not arrive. Live tracking starts working once real order placement is enabled.",
+};
+
 async function realMcpToken(): Promise<string | null> {
   if (!isSwiggyMcpEnabled()) return null;
   return getValidSwiggyToken();
@@ -188,6 +202,8 @@ export async function instamart_schedule_recurring(input: {
       ok: true,
       data: {
         schedule_id: `IM-RC-${Date.now()}`,
+        id_type: "greenledger_reference",
+        swiggy_order_id: null,
         ngo: input.ngo_name,
 
         // One drop ordered; the rest scheduled. Same reasoning as the Food
@@ -235,6 +251,9 @@ export async function track_instamart_order(input: {
       error: "Live order tracking needs the delivery location's coordinates, which aren't available in this flow yet.",
     };
   }
+  // Same as track_food_order: a schedule reference is not a Swiggy order id.
+  if (isGreenLedgerReference(input.schedule_id)) return NO_REAL_ORDER_TO_TRACK;
+
   try {
     const res = await callSwiggyTool(
       "instamart",
@@ -242,7 +261,7 @@ export async function track_instamart_order(input: {
       { orderId: input.schedule_id, lat: input.latitude, lng: input.longitude },
       token
     );
-    return { ok: true, data: { ...(res.data as object), schedule_id: input.schedule_id, source: "real" } };
+    return { ok: true, data: { ...(res.data as object), swiggy_order_id: input.schedule_id, source: "real" } };
   } catch (err) {
     return callFailed(err);
   }
@@ -509,6 +528,10 @@ export async function food_schedule_meal_program(input: {
       ok: true,
       data: {
         program_id: `FD-MP-${Date.now()}`,
+        // GreenLedger's reference for its own records. Not a Swiggy order id —
+        // no order exists, and nothing can be tracked against this.
+        id_type: "greenledger_reference",
+        swiggy_order_id: null,
         ngo: input.ngo_name,
 
         // ONE DROP IS PLACED. The cart built above holds a single drop's
@@ -564,9 +587,19 @@ export async function track_food_order(input: {
 }): Promise<ToolResult> {
   const token = await realMcpToken();
   if (!token) return NOT_CONNECTED;
+
+  // A GreenLedger reference is not a Swiggy order id, and this used to send one
+  // straight to Swiggy's tracker. Swiggy has no such order — checkout is
+  // simulated, so no order was ever placed — and the empty result read as a
+  // transient "no status yet", which the agent then explained away as normal
+  // for a delivery slot still days out. It would never have resolved, at any
+  // time. Fail honestly instead of producing something that looks like a
+  // pending status.
+  if (isGreenLedgerReference(input.program_id)) return NO_REAL_ORDER_TO_TRACK;
+
   try {
     const res = await callSwiggyTool("food", "track_food_order", { orderId: input.program_id }, token);
-    return { ok: true, data: { ...(res.data as object), program_id: input.program_id, source: "real" } };
+    return { ok: true, data: { ...(res.data as object), swiggy_order_id: input.program_id, source: "real" } };
   } catch (err) {
     return callFailed(err);
   }
