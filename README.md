@@ -14,6 +14,19 @@ One console, one engine, two modes reached by a single switch — not two separa
 | ⚡ **Second Helping** | Deploys a corporate's CSR budget into recurring meal-sponsorship programs — schedules Instamart/Food/Dineout orders, stacks coupons, generates 80G receipts and GST invoices as real PDFs, tracks deployment against budget. | Yes — loads by default |
 | 🍱 **The Group Concierge** | Plans **organizational/pooled-spend** events — RWA potlucks, company offsites, CSR-sponsored NGO meals — across the same three Swiggy surfaces. Not personal spend. | One tap away via the mode switch |
 
+## See it running
+
+A full 16-minute walkthrough against a live-connected Swiggy account — real
+kitchen search, real menu prices, the policy engine refusing an unverified
+donee, human approval, and the generated 80G receipt and GST invoice opening as
+real PDFs.
+
+**[media/greenledger-demo.mp4](media/greenledger-demo.mp4)**
+
+Worth knowing while watching: the cart is real and the prices are live, but
+checkout is simulated — no order is placed and no money moves. See "Known
+limits" below.
+
 ## What makes this different from an LLM with tools
 
 The interesting part isn't that the agent can spend money. It's that it **can't

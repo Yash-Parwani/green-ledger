@@ -15,6 +15,12 @@
 const PAGE_WIDTH = 595; // A4 at 72dpi
 const PAGE_HEIGHT = 842;
 const MARGIN = 56;
+/** Width reserved for the label column before the value column starts. */
+const LABEL_COLUMN_WIDTH = 210;
+/** Helvetica averages a shade under half the point size per character, so this
+ *  is how many characters fit in the label column at 10pt before they'd run
+ *  under the value. Kept slightly conservative. */
+const LABEL_MAX_CHARS = 38;
 
 export type DocumentSpec = {
   title: string;
@@ -96,11 +102,22 @@ function buildContentStream(spec: DocumentSpec): string {
       y -= 18;
     }
     for (const row of section.rows) {
-      write(row.label, "F2", 10);
-      // Right column at a fixed offset — every value here is short (an amount,
-      // an id, a date), so a simple two-column layout is sufficient.
-      write(row.value, "F1", 10, MARGIN + 210);
+      // Labels wrap inside the left column instead of running under the value.
+      //
+      // They used to be written as a single line at x=MARGIN with the value at
+      // a fixed x=MARGIN+210, on the assumption that labels were short. A GST
+      // supply line isn't: "Veg Thali (pure veg) - cooked meal, Sneha Shelters
+      // (HSN/SAC 996331) x 100" ran straight through the amount and rendered
+      // as "Sneha She INR 31,900 lters". Overlapping text on a tax invoice is
+      // the kind of detail that costs you the room.
+      const labelLines = wrap(row.label, LABEL_MAX_CHARS);
+      write(labelLines[0] ?? "", "F2", 10);
+      write(row.value, "F1", 10, MARGIN + LABEL_COLUMN_WIDTH);
       y -= 17;
+      for (const cont of labelLines.slice(1)) {
+        write(cont, "F2", 10);
+        y -= 13;
+      }
     }
     y -= 12;
   }
