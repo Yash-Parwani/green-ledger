@@ -77,8 +77,8 @@ export function extractPaymentSimulations(trajectory: TrajEntry[]): ExtractedPay
           meta: i.quantity_kg ? `${i.quantity_kg}kg` : undefined,
           amount: i.price_per_kg_inr != null ? `₹${i.price_per_kg_inr}/kg` : undefined,
         })),
-        perDrop: output.data.total_per_drop_inr != null ? `₹${(output.data.total_per_drop_inr as number).toLocaleString("en-IN")}` : undefined,
-        total: output.data.total_program_inr != null ? `₹${(output.data.total_program_inr as number).toLocaleString("en-IN")}` : undefined,
+        perDrop: output.data.this_drop_inr != null ? `₹${(output.data.this_drop_inr as number).toLocaleString("en-IN")}` : undefined,
+        total: output.data.programme_value_inr != null ? `₹${(output.data.programme_value_inr as number).toLocaleString("en-IN")}` : undefined,
         note: (output.data.payment_note as string) ?? "Checkout is simulated in this demo build.",
       });
     }
@@ -95,8 +95,8 @@ export function extractPaymentSimulations(trajectory: TrajEntry[]): ExtractedPay
           meta: m.quantity ? `×${m.quantity}` : undefined,
           amount: m.price_inr != null ? `₹${m.price_inr}` : undefined,
         })),
-        perDrop: output.data.per_drop_inr != null ? `₹${(output.data.per_drop_inr as number).toLocaleString("en-IN")}` : undefined,
-        total: output.data.total_program_inr != null ? `₹${(output.data.total_program_inr as number).toLocaleString("en-IN")}` : undefined,
+        perDrop: output.data.this_drop_inr != null ? `₹${(output.data.this_drop_inr as number).toLocaleString("en-IN")}` : undefined,
+        total: output.data.programme_value_inr != null ? `₹${(output.data.programme_value_inr as number).toLocaleString("en-IN")}` : undefined,
         note: (output.data.payment_note as string) ?? "Checkout is simulated in this demo build.",
       });
     }

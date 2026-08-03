@@ -189,11 +189,26 @@ export async function instamart_schedule_recurring(input: {
       data: {
         schedule_id: `IM-RC-${Date.now()}`,
         ngo: input.ngo_name,
+
+        // One drop ordered; the rest scheduled. Same reasoning as the Food
+        // programme — the cart holds a single drop, and staple prices move, so
+        // each drop is re-priced and re-confirmed rather than locked in today.
+        drop_placed: 1,
+        this_drop_inr: Math.round(perDropTotal),
         items: lineSummary,
-        total_per_drop_inr: Math.round(perDropTotal),
-        total_program_inr: Math.round(perDropTotal * totalDrops),
-        drops_scheduled: totalDrops,
         next_delivery: getNextSaturday(),
+
+        drops_total: totalDrops,
+        drops_remaining: Math.max(totalDrops - 1, 0),
+        next_drop_due: totalDrops > 1 ? nextDropDue(input.cadence) : null,
+        programme_value_inr: Math.round(perDropTotal * totalDrops),
+        remaining_drops_note:
+          totalDrops > 1
+            ? `Drops 2-${totalDrops} are scheduled, not ordered. Each is re-priced against live Instamart and confirmed with the CSR admin before it runs.`
+            : "Single drop — nothing further scheduled.",
+        scheduler_status: "not_yet_running",
+        scheduler_note:
+          "The recurring runner isn't live in this build, so drops 2+ won't fire on their own yet. Say so if asked.",
         cadence: input.cadence,
         payment_simulated: true,
         payment_note:
@@ -495,20 +510,42 @@ export async function food_schedule_meal_program(input: {
       data: {
         program_id: `FD-MP-${Date.now()}`,
         ngo: input.ngo_name,
+
+        // ONE DROP IS PLACED. The cart built above holds a single drop's
+        // quantities, so that's all that has been ordered — the rest of the
+        // programme is scheduled, not bought.
+        //
+        // This isn't only bookkeeping. A dish quoted today can be off the menu
+        // by the next drop (already observed live), so committing ten drops at
+        // today's price would lock in a number that stops being true almost
+        // immediately. Each drop gets re-quoted and re-confirmed on its own.
+        drop_placed: 1,
+        this_drop_inr: Math.round(perDropTotal),
+        ...(perDropNet !== null ? { this_drop_after_coupon_inr: Math.round(perDropNet) } : {}),
         menu: menuSummary,
         unmatched_items: unmatched,
         coupon,
-        per_drop_inr: Math.round(perDropTotal),
-        ...(perDropNet !== null
-          ? {
-              per_drop_after_coupon_inr: Math.round(perDropNet),
-              total_program_after_coupon_inr: Math.round(perDropNet * totalDrops),
-            }
-          : {}),
-        total_program_inr: Math.round(perDropTotal * totalDrops),
-        total_drops: totalDrops,
-        total_meals: totalMeals,
         first_delivery: getNextMonday() + " · 9:00 AM",
+
+        drops_total: totalDrops,
+        drops_remaining: Math.max(totalDrops - 1, 0),
+        next_drop_due: totalDrops > 1 ? nextDropDue(input.cadence) : null,
+        // The whole programme is earmarked against budget so the money can't be
+        // spent twice, but only the figure above has actually been ordered.
+        programme_value_inr: Math.round(perDropTotal * totalDrops),
+        ...(perDropNet !== null
+          ? { programme_value_after_coupon_inr: Math.round(perDropNet * totalDrops) }
+          : {}),
+        meals_this_drop: input.servings_per_drop,
+        meals_across_programme: totalMeals,
+        remaining_drops_note:
+          totalDrops > 1
+            ? `Drops 2-${totalDrops} are scheduled, not ordered. Each one is re-quoted against the live menu and confirmed with the CSR admin before it runs, so prices and menu changes surface before money moves rather than after.`
+            : "Single drop — nothing further scheduled.",
+        scheduler_status: "not_yet_running",
+        scheduler_note:
+          "The recurring runner isn't live in this build, so drops 2+ won't fire on their own yet. Say so if asked — don't imply an automated drop already exists.",
+
         dietary_notes: input.dietary_notes ?? "none",
         payment_simulated: true,
         payment_note:
@@ -774,10 +811,14 @@ export async function schedule_program(
       components: input.components,
       next_run: getNextSaturday() + " · 10:00 AM",
       status: "active",
+      // No "proceeds automatically if no response within 24h". That promised
+      // unattended spend on a silence, which is the opposite of every control
+      // in this product — a drop that nobody confirmed is exactly what the
+      // approval gate exists to prevent. Silence is not consent.
       confirmation_message: `📋 *${input.program_name}* scheduled.\n` +
-        `• NGO: ${input.ngo_name}  •  Budget: ₹${input.total_budget_inr.toLocaleString("en-IN")}  •  Cadence: ${input.cadence}\n` +
+        `• NGO: ${input.ngo_name}  •  Earmarked: ₹${input.total_budget_inr.toLocaleString("en-IN")}  •  Cadence: ${input.cadence}\n` +
         `• Next run: ${getNextSaturday()}\n\n` +
-        `Before each run, you'll receive a confirmation prompt. Execution will proceed automatically if no response within 24h.`,
+        `Each run is confirmed with the CSR admin before it executes. Nothing goes out on a silence.`,
     },
   };
 }
@@ -906,6 +947,14 @@ export async function generate_gst_invoice(
 function getNextSaturday(): string {
   const d = new Date();
   d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
+  return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** When the next drop in a recurring programme would fall due. */
+function nextDropDue(cadence: "daily" | "weekly" | "biweekly" | "monthly"): string {
+  const d = new Date();
+  const days = cadence === "daily" ? 1 : cadence === "weekly" ? 7 : cadence === "biweekly" ? 14 : 30;
+  d.setDate(d.getDate() + days);
   return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 }
 

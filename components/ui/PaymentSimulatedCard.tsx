@@ -70,12 +70,12 @@ export function PaymentSimulatedCard({
         <div className="flex items-center justify-between text-xs text-ink-600">
           {perDrop && (
             <span>
-              Per drop <span className="font-mono text-ink-900">{perDrop}</span>
+              This drop <span className="font-mono text-ink-900">{perDrop}</span>
             </span>
           )}
           {total && (
             <span>
-              Program total <span className="font-mono font-semibold text-ink-900">{total}</span>
+              Programme earmarked <span className="font-mono font-semibold text-ink-900">{total}</span>
             </span>
           )}
         </div>
