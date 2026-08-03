@@ -7,7 +7,13 @@
 // Instamart `checkout` that sat live in this codebase behind nothing but a URL
 // typo is exactly that failure.
 
-import { evaluate, toToolResult, isCommittingTool } from "@/lib/server/policy";
+import {
+  evaluate,
+  toToolResult,
+  isCommittingTool,
+  committedAmountFor,
+  describeCommitment,
+} from "@/lib/server/policy";
 import { ledger } from "@/lib/server/ledger";
 import { proposals } from "@/lib/server/proposals";
 import type { AgentContext } from "@/lib/server/session";
@@ -50,7 +56,9 @@ export function withPolicy<T extends Record<string, Impl>>(
       const ok = (result as { ok?: boolean } | null)?.ok !== false;
       if (ctx && ok && isCommittingTool(name)) {
         const i = (input ?? {}) as Record<string, unknown>;
-        const amount = typeof i.total_budget_inr === "number" ? i.total_budget_inr : null;
+        // Same reader the gate used. Anything else and the ledger and the
+        // policy engine disagree about how much money just moved.
+        const amount = committedAmountFor(name, input);
         await ledger.append({
           orgId: ctx.orgId,
           kind: "commitment",
@@ -58,10 +66,7 @@ export function withPolicy<T extends Record<string, Impl>>(
           actor: { userId: ctx.userId, role: ctx.role },
           toolName: name,
           toolInput: input,
-          summary:
-            typeof i.program_name === "string"
-              ? `Committed: ${i.program_name}`
-              : `Committed via ${name}`,
+          summary: describeCommitment(name, input) ?? `Committed via ${name}`,
           ngoName: typeof i.ngo_name === "string" ? i.ngo_name : undefined,
           programId:
             typeof (result as { data?: { program_id?: string } })?.data?.program_id === "string"

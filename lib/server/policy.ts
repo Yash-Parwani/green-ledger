@@ -128,6 +128,31 @@ export function isCommittingTool(name: string): boolean {
   return name in COMMITTING_TOOLS;
 }
 
+/**
+ * The rupee value of a commitment, read the same way the policy engine reads
+ * it. Exported so the ledger can't disagree with the gate about how much money
+ * a call moves — withPolicy used to look only for `total_budget_inr`, which
+ * only schedule_program has, so every Food and Instamart commitment was
+ * ledgered with a null amount and summed to zero. The gate said ₹42,800; the
+ * budget said ₹0.
+ */
+export function committedAmountFor(toolName: string, input: unknown): number | null {
+  const spec = COMMITTING_TOOLS[toolName];
+  if (!spec) return null;
+  return spec.amountInr?.((input ?? {}) as Record<string, unknown>) ?? null;
+}
+
+/** The human-readable line the gate uses, reused for the ledger entry. */
+export function describeCommitment(toolName: string, input: unknown): string | null {
+  const spec = COMMITTING_TOOLS[toolName];
+  if (!spec) return null;
+  try {
+    return spec.describe((input ?? {}) as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
 // ─── Decisions ────────────────────────────────────────────────────────────────
 
 export type PolicyCode =

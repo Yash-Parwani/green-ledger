@@ -33,6 +33,20 @@ type CorporateProfile = {
   annual_budget_inr: number;
 };
 
+/** Compact the execution result for the agent: keep every field it needs to
+ *  report, drop the undocumented raw coupon payload that can run to kilobytes
+ *  and tells the agent nothing it can't get from `coupon.note`. */
+function summariseExecution(output: unknown): string {
+  const o = output as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  if (!o || o.ok === false) return JSON.stringify({ ok: false, error: o?.error ?? "unknown error" }, null, 2);
+  const data = { ...(o.data ?? {}) };
+  if (data.coupon && typeof data.coupon === "object") {
+    const { raw: _raw, ...coupon } = data.coupon as Record<string, unknown>;
+    data.coupon = coupon;
+  }
+  return JSON.stringify({ ok: true, data }, null, 2);
+}
+
 export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) {
   const { messages, trajectory, loading, send, recordExternalToolCall } = chat;
   const [input, setInput] = useState("");
@@ -306,11 +320,17 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
                     // other way to learn the click landed, and without this it
                     // asks the user to approve something already approved.
                     recordExternalToolCall(executed.toolName, executed.toolInput, executed.output);
-                    const ok = (executed.output as { ok?: boolean })?.ok !== false;
+                    // The trajectory is display state — the agent never sees
+                    // it, only `messages`. Telling it "it executed" without the
+                    // result left it correctly refusing to confirm anything,
+                    // because it genuinely had no tool output to read. So the
+                    // result travels in the message itself.
                     handleSend(
-                      ok
-                        ? "Approved — it executed. Confirm what actually landed, re-check the budget, and carry on with the next step."
-                        : "Approved, but the execution failed. Tell me what went wrong and what you need to retry it."
+                      `Approved, and the commitment executed. Here is the tool result for \`${executed.toolName}\`:\n\n` +
+                        "```json\n" +
+                        summariseExecution(executed.output) +
+                        "\n```\n\n" +
+                        "Report what actually landed from this result, re-check the budget, and carry on with the next step."
                     );
                   }}
                 />
