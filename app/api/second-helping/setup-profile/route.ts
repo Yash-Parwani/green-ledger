@@ -1,4 +1,5 @@
 import { repo } from "@/lib/server/orgStore";
+import { ledger } from "@/lib/server/ledger";
 import { getSession, createSession, clearSession } from "@/lib/server/session";
 
 export const runtime = "nodejs";
@@ -61,7 +62,11 @@ export async function GET() {
   const session = await getSession();
   if (!session) return Response.json({ profile: null });
   const org = await repo.get(session.orgId);
-  return Response.json({ profile: org ? toClient(org) : null });
+  if (!org) return Response.json({ profile: null });
+  // Spend derives from the ledger, same as csr_budget_status — the console and
+  // the agent must never quote different numbers for the same budget.
+  const spent = await ledger.totalCommittedInr(session.orgId);
+  return Response.json({ profile: { ...toClient(org), budget_spent_inr: spent } });
 }
 
 /** Sign out of this organization. */

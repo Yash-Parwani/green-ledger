@@ -34,7 +34,7 @@ type CorporateProfile = {
 };
 
 export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) {
-  const { messages, trajectory, loading, send } = chat;
+  const { messages, trajectory, loading, send, recordExternalToolCall } = chat;
   const [input, setInput] = useState("");
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [dismissedCardIds, setDismissedCardIds] = useState<Set<string>>(new Set());
@@ -297,9 +297,21 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
                 <ApprovalCard
                   key={req.proposalId}
                   proposalId={req.proposalId}
-                  onDecided={(id) => {
+                  onDecided={(id, executed) => {
                     setApprovalsVersion((v) => v + 1);
                     setDecidedProposalIds((prev) => new Set(prev).add(id));
+                    if (!executed) return;
+                    // Put the commitment on the trajectory so the tiles and the
+                    // programme list see it, then tell the agent — it has no
+                    // other way to learn the click landed, and without this it
+                    // asks the user to approve something already approved.
+                    recordExternalToolCall(executed.toolName, executed.toolInput, executed.output);
+                    const ok = (executed.output as { ok?: boolean })?.ok !== false;
+                    handleSend(
+                      ok
+                        ? "Approved — it executed. Confirm what actually landed, re-check the budget, and carry on with the next step."
+                        : "Approved, but the execution failed. Tell me what went wrong and what you need to retry it."
+                    );
                   }}
                 />
               ))}

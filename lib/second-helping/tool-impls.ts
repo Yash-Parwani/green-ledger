@@ -41,6 +41,7 @@ import {
 } from "@/lib/shared/swiggy-mcp-client";
 import { repo } from "@/lib/server/orgStore";
 import { ngos } from "@/lib/server/ngoStore";
+import { ledger } from "@/lib/server/ledger";
 import { artifacts } from "@/lib/server/artifacts";
 import { renderDocument, formatInr } from "@/lib/server/pdf";
 import { buildGstInvoice, type GstInvoiceInput } from "@/lib/server/gstInvoice";
@@ -706,7 +707,15 @@ export async function csr_budget_status(ctx: AgentContext | null): Promise<ToolR
     };
   }
   const budget_total = profile.budgetTotalInr;
-  const budget_spent = profile.budgetSpentInr;
+  // Spend comes from the LEDGER, which is the only source of truth for it.
+  //
+  // This used to read a counter that only schedule_program incremented, while
+  // the policy engine measured its ceilings against the ledger. So a Food or
+  // Instamart programme could commit lakhs — recorded on the ledger, counted by
+  // policy — and this tool would still report ₹0 spent and flag "underspend
+  // risk". The agent then tells a CSR head they have their whole budget left.
+  // Two sources of truth for money is one too many.
+  const budget_spent = await ledger.totalCommittedInr(ctx.orgId);
   const budget_remaining = budget_total - budget_spent;
   const utilization_pct = Math.round((budget_spent / budget_total) * 100);
   const today = new Date();
@@ -750,7 +759,9 @@ export async function schedule_program(
       error: "No CSR profile set up yet — call setup_csr_profile first.",
     };
   }
-  await repo.recordSpend(ctx.orgId, input.total_budget_inr);
+  // No recordSpend here. withPolicy writes the commitment to the ledger, and
+  // the ledger is what every spend figure is derived from — incrementing a
+  // second counter here would double-count against itself.
   const program_id = `PROG-${Date.now()}`;
   return {
     ok: true,

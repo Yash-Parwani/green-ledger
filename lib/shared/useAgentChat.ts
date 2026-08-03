@@ -42,5 +42,26 @@ export function useAgentChat(endpoint: string) {
     [messages, endpoint]
   );
 
-  return { messages, trajectory, loading, send };
+  /**
+   * Record a tool call that ran OUTSIDE a chat turn — specifically, the
+   * commitment that fires when a human clicks Approve.
+   *
+   * That execution happens in the approvals route, so without this the chat
+   * never learns it happened: the dashboard tiles stay at zero, the programme
+   * never appears, and the agent — having no tool result for it — keeps telling
+   * the user to click a button they already clicked.
+   */
+  const recordExternalToolCall = useCallback(
+    (name: string, input: unknown, output: unknown) => {
+      const id = `approval-${name}-${Date.now()}`;
+      setTrajectory((t) => [
+        ...t,
+        { kind: "tool_use", name, input, id },
+        { kind: "tool_result", id, output },
+      ]);
+    },
+    []
+  );
+
+  return { messages, trajectory, loading, send, recordExternalToolCall };
 }

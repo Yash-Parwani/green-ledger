@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/Button";
 
 type Proposal = {
   id: string;
+  toolName: string;
+  toolInput: unknown;
   summary: string;
   amountInr: number | null;
   ngoName?: string;
@@ -36,7 +38,7 @@ export function ApprovalCard({
   onDecided,
 }: {
   proposalId: string;
-  onDecided?: (proposalId: string) => void;
+  onDecided?: (proposalId: string, executed?: { toolName: string; toolInput: unknown; output: unknown }) => void;
 }) {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [thresholdInr, setThresholdInr] = useState<number | null>(null);
@@ -81,7 +83,14 @@ export function ApprovalCard({
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Could not record that decision.");
       await load();
-      onDecided?.(proposalId);
+      // Hand the execution back so the console can put it on the trajectory —
+      // otherwise the commitment is invisible to the chat that proposed it.
+      onDecided?.(
+        proposalId,
+        res.ok && data.execution && proposal
+          ? { toolName: proposal.toolName, toolInput: proposal.toolInput, output: data.execution }
+          : undefined
+      );
     } finally {
       setBusy(false);
     }

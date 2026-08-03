@@ -15,6 +15,8 @@ export type Org = {
   orgId: string;
   name: string;
   budgetTotalInr: number;
+  /** @deprecated Spend is derived from the ledger. Retained only so existing
+   *  records deserialize; never written, never read for a spend figure. */
   budgetSpentInr: number;
   fiscalYearEnd: string; // e.g. "March 31"
   /** The CSR admin who registered this org. Maker-checker compares against it:
@@ -57,7 +59,6 @@ export interface OrgRepository {
       dualApprovalThresholdInr?: number | null;
     }
   ): Promise<Org>;
-  recordSpend(orgId: string, amountInr: number): Promise<Org | null>;
 }
 
 class InMemoryOrgRepository implements OrgRepository {
@@ -97,12 +98,7 @@ class InMemoryOrgRepository implements OrgRepository {
     return next;
   }
 
-  async recordSpend(orgId: string, amountInr: number): Promise<Org | null> {
-    const existing = this.orgs.get(orgId);
-    if (!existing) return null;
-    existing.budgetSpentInr += amountInr;
-    return existing;
-  }
+
 }
 
 // Survives Next.js dev hot-reloads, which otherwise re-evaluate this module and
