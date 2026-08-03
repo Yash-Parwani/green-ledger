@@ -25,7 +25,8 @@
 // NOTE: search_menu/update_food_cart item shape (variations vs variantsV2)
 // is runtime-dependent per Swiggy's own docs — this hasn't had a live smoke
 // test against a connected account yet, only been verified against the docs
-// (see CLAUDE.md's "how to verify the build").
+// smoke-tested against a connected account — verify the cart-item mapping
+// before trusting it in production.
 //
 // Real MCP endpoints:
 //   Food:      POST mcp.swiggy.com/food
@@ -609,7 +610,7 @@ export async function track_food_order(input: {
 // Real booking needs a slotId from get_available_slots, which itself needs
 // lat/lng (not addressId) per the live schema — so the real branch only
 // covers search here; actual slot booking stays unimplemented until this
-// tool's schema carries coordinates. See CLAUDE.md pending item 4.
+// tool's schema carries coordinates.
 export async function dineout_community_table(input: {
   location: string;
   party_size: number;

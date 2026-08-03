@@ -1,6 +1,7 @@
 // OAuth 2.1 + PKCE against the real Swiggy Builders Club MCP servers.
 // Docs verified live at https://mcp.swiggy.com/builders/docs/start/authenticate
-// (see CLAUDE.md "Swiggy Builders Club MCP reference" before touching this file).
+// Verify against the live docs before changing anything here — don't guess a
+// tool name, parameter or auth step: https://mcp.swiggy.com/builders/llms.txt
 //
 // Swiggy MCP auth is user-level (phone + OTP), not a service API key, and v1
 // has no refresh-token grant — an expired token means re-running the full

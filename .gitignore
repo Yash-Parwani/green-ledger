@@ -7,5 +7,10 @@ node_modules
 next-env.d.ts
 tsconfig.tsbuildinfo
 
-# Internal strategy doc — kept local, not published to a public repo.
+# Internal working docs — kept on disk, not published.
+# CTO-BRIEF.md  strategy and the candid readiness assessment
+# CLAUDE.md     architecture notes and the rules this repo is built under
+# DEMO.md       the recording script; the published video supersedes it
 CTO-BRIEF.md
+CLAUDE.md
+DEMO.md

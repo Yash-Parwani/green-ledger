@@ -42,7 +42,8 @@ it off.
 - **Every approval is attributed** — recorded against the CSR admin of record, on the
   ledger, with the timestamp. Two-person approval is built but currently switched off;
   it's only meaningful once the second approver can be notified out of band, and until
-  then escalation just dead-ends in the console. See `CLAUDE.md`.
+  then escalation just dead-ends in the console. The threshold is per-organization
+  and the machinery stays wired up, so it returns with the notification channel.
 - **Donee verification**: no spend against an NGO whose 80G/12A registration a human
   hasn't verified. There is deliberately no tool that lets the agent verify one.
 - **Ceilings**: annual budget, 90% utilization, and a rolling 24h cap.
@@ -80,8 +81,6 @@ npm run dev             # http://localhost:3000
 Then register an organization in the console — the admin email you give is the
 identity approvals are checked against.
 
-`DEMO.md` is a copy-paste walkthrough of the full flow, including the refusals.
-
 ## Key routes
 
 - `/` — landing page
@@ -94,7 +93,7 @@ identity approvals are checked against.
 
 - **State is in-memory and resets on restart.** All four stores are repository-shaped
   (`orgStore`, `ledger`, `ngoStore`, `proposals`) so the database swap is one class
-  each. The backend decision is open; see `CLAUDE.md`.
+  each. The backend decision is still open.
 - **Order placement stops before checkout.** Carts are built against live Swiggy with
   real prices, then return `payment_simulated: true`. Swiggy's `place_food_order` has
   no dry-run mode and caps at ₹1,000/order in production, so CSR-scale volume needs
@@ -103,4 +102,21 @@ identity approvals are checked against.
   OTP) with no refresh-token grant, so a cron job has no credential to execute with.
   An org-level credential is a prerequisite for the proactive/scheduled features.
 
-See `CLAUDE.md` for architecture, the CSR-first positioning rule, and build status.
+## Layout
+
+```
+app/       routes — the console, the landing page, the Impact Ledger,
+           the agent endpoints, and /api/documents for generated PDFs
+components/ui, components/console — design-system primitives and the two mode bodies
+lib/server/   session, policy engine, append-only ledger, donee registry,
+              proposals, PDF generation — everything the controls live in
+lib/shared/   the agent loop, the Swiggy MCP client, coupon handling
+lib/second-helping, lib/group-concierge — tool schemas, system prompts, tool
+              implementations, and the extractors that turn a trajectory into cards
+scripts/swiggy-mcp-diagnostic.mjs — read-only evidence log against the live
+              Swiggy MCP servers; redacts the bearer token
+```
+
+The load-bearing files are `lib/server/policy.ts` (the gate), `lib/server/withPolicy.ts`
+(which wraps every tool so nothing opts out of it) and `lib/server/ledger.ts`
+(append-only, and the single source of truth for how much has been spent).

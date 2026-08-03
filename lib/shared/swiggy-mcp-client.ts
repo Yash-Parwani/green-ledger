@@ -2,7 +2,8 @@
 // Instamart, Dineout). Confirmed live against the docs: standard MCP
 // Streamable HTTP transport, JSON-RPC 2.0 `tools/call`, response envelope
 // `{success, data, message}` / `{success:false, error:{message}}`.
-// See CLAUDE.md's "Swiggy Builders Club MCP reference" before changing this.
+// Verify against the live docs before changing this — mount paths and tool
+// signatures are easy to get wrong: https://mcp.swiggy.com/builders/llms.txt
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
