@@ -150,11 +150,11 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
     }
   }
 
-  function handleSend(text: string) {
+  function handleSend(text: string, opts?: { system?: boolean }) {
     setInput("");
     retireOpenCards();
     // No profile in the payload — the server reads the org off the session.
-    send(text);
+    send(text, opts);
   }
 
   function confirmSelection() {
@@ -247,15 +247,29 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
             </div>
           )}
 
-          {messages.map((m, i) => (
-            <ChatBubble key={i} role={m.role} author={m.role === "assistant" ? "Second Helping" : undefined}>
-              {m.role === "assistant" ? (
-                <Markdown>{m.content}</Markdown>
-              ) : (
-                <Markdown tone="dark">{m.content}</Markdown>
-              )}
-            </ChatBubble>
-          ))}
+          {messages.map((m, i) =>
+            m.system ? (
+              // Machine-to-machine: the console handing the agent a tool result
+              // it can't otherwise see. Shown as a quiet note so the transcript
+              // still reads as a conversation between a person and an agent.
+              <p
+                key={i}
+                className="flex items-center gap-2 py-0.5 text-[11px] italic text-ink-400"
+              >
+                <span aria-hidden className="h-px flex-1 bg-ink-200" />
+                Execution result passed to the agent
+                <span aria-hidden className="h-px flex-1 bg-ink-200" />
+              </p>
+            ) : (
+              <ChatBubble key={i} role={m.role} author={m.role === "assistant" ? "Second Helping" : undefined}>
+                {m.role === "assistant" ? (
+                  <Markdown>{m.content}</Markdown>
+                ) : (
+                  <Markdown tone="dark">{m.content}</Markdown>
+                )}
+              </ChatBubble>
+            )
+          )}
 
           {planCards.length > 0 && (
             <div className="flex flex-col gap-3 pt-1">
@@ -330,7 +344,8 @@ export function CsrConsole({ chat }: { chat: ReturnType<typeof useAgentChat> }) 
                         "```json\n" +
                         summariseExecution(executed.output) +
                         "\n```\n\n" +
-                        "Report what actually landed from this result, re-check the budget, and carry on with the next step."
+                        "Report what actually landed from this result, re-check the budget, and carry on with the next step.",
+                      { system: true }
                     );
                   }}
                 />
