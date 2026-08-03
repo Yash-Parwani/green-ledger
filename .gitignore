@@ -6,3 +6,6 @@ node_modules
 .DS_Store
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Internal strategy doc — kept local, not published to a public repo.
+CTO-BRIEF.md
